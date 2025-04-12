@@ -39,6 +39,6 @@ Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento
       }
 // o código continua...
 ```
-
+As versões ainda estão sendo implementadas.
 
 
