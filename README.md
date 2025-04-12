@@ -33,7 +33,7 @@ Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideGetParam || hideGetParam !== env.HIDE_PARAM) {
+      } else if (!hideParam || hideParam !== env.HIDE_PARAM) {
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
