@@ -123,7 +123,7 @@ export default {
         const responseData = JSON.stringify(jsonData);
 
         // Atualiza o valor para 0 e grava novamente no KV.
-        jsonData.valor = 0;
+        jsonData.valor = 0.00;
         await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
 
         response = new Response(responseData, {
@@ -161,7 +161,7 @@ function handleOptions(request) {
     "Access-Control-Allow-Headers": requestHeaders || "*",
     "Access-Control-Max-Age": "86400"
   };
-  return new Response(null, { status: 204, headers });
+  return new Response("OK", { status: 204, headers });
 }
 
 /**
