@@ -1,9 +1,12 @@
 {
-  "name": "apix-v1",
-  "compatibility_date": "2025-04-12",
-  "main": "src/worker.js"
-},
- "observability": {
-    "logs": {
-      "enabled": true
+    {
+      "name": "apix-v1",
+      "compatibility_date": "2025-04-12",
+      "main": "src/worker.js"
+    },
+     "observability": {
+        "logs": {
+          "enabled": true
+    }
 }
+
