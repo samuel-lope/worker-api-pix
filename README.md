@@ -19,7 +19,7 @@ Adicionei variáveis de ambiente para ocultar chaves que permitem adicionar dado
 
 Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento".
 
-```javascript
+```js
 // Endpoint para receber notificações
     if (url.pathname === "/recebimento") {
 
@@ -27,13 +27,13 @@ Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento
       let hmacParam = null;
 
       // Autorizacao totalmente restrita de Recebimento-TESTE.
-      // Necessario: url-webhook/recebimento?hideGET-0000000=TEST_PASS
-      const hideGetParam = url.searchParams.get(env.HIDE_GET);
+      // Necessario: url-webhook/recebimento?hidePARAM-0000000=TEST_PASS
+      const hideGetParam = url.searchParams.get(env.HIDE_PARAM);
       if (hideGetParam == env.TEST_PASS) {
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideGetParam || hideGetParam !== env.HIDE_GET) {
+      } else if (!hideGetParam || hideGetParam !== env.HIDE_PARAM) {
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
