@@ -14,7 +14,6 @@
   "d1_databases": [
     {
       "binding": "DATA_D1",
-      "database_name": "data-pix",
       "database_id": "a32acae2-f901-4a2e-83b6-fd5c450db4a1"
     }
   ],
