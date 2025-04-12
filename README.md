@@ -14,7 +14,7 @@ Adicionei variáveis de ambiente para ocultar chaves que permitem adicionar dado
 
 | Nome      | Exemplo                          | Descrição |
 | ---       |   ---                            | ---       |
-| HIDE_GET  | teste-e4f2aff                    | Parametro oculto para impedir adição indevida de créditos utilizando o ambiente de teste |
+| HIDE_PARAM  | teste-e4f2aff                    | Parametro oculto para impedir adição indevida de créditos utilizando o ambiente de teste |
 | TEST_PASS | ffe822014ca58eae6349f561a5f2876c | Chave hexadecimal para validada. Chamada pelo parametro "teste-e4f2aff" (HIDE_GET)       |
 
 Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento".
