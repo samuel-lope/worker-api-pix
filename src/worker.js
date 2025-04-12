@@ -18,6 +18,7 @@ export default {
     // Politicas de CORS
     const corsHeaders = {
       "Access-Control-Allow-Origin": "https://post.samuellopes.com.br",
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
