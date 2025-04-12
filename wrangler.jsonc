@@ -5,6 +5,24 @@
   "vars": {
     "EFI_IP": "34.193.116.226"
   },
+  "r2_buckets": [
+    {
+      "binding": "MY_R2",
+      "bucket_name": "api-pix",
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DATA_D1",
+      "database_name": "data-pix"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MY_KV",
+      "id": "68ffff006d724c958f415be1341cb563"
+    }
+  ],
   "observability": {
     "logs": {
       "enabled": true
