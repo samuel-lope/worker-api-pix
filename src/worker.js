@@ -8,7 +8,7 @@
 export default {
   /**
    * @param {{ url: string | URL; headers: { get: (arg0: string) => any; }; method: string; json: () => any; }} request
-   * @param {{ HMAC: string; HIDE_GET: string; EFI_IP: string; TEST_PASS: string;
+   * @param {{ HMAC: string; HIDE_PARAM: string; EFI_IP: string; TEST_PASS: string;
    *           MY_R2: { put: (arg0: string, arg1: string) => any; get: (arg0: string) => any; };
    *           MY_KV: { put: (arg0: string, arg1: string) => any; get: (arg0: string, arg1?: string) => any; };
    *           DATA_D1: { prepare: (query: string) => any; }; }} env
@@ -25,12 +25,12 @@ export default {
 
       // Autorizacao totalmente restrita de Recebimento-TESTE.
       // Necessario: url-webhook/recebimento?hideGET-0000000=TEST_PASS
-      const hideGetParam = url.searchParams.get(env.HIDE_GET);
+      const hideGetParam = url.searchParams.get(env.HIDE_PARAM);
       if (hideGetParam == env.TEST_PASS) {
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideGetParam || hideGetParam !== env.HIDE_GET) {
+      } else if (!hideGetParam || hideGetParam !== env.HIDE_PARAM) {
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
