@@ -1,6 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.3 (48b4e173)
+// version: 0.0.3
 // - Sobre a versão 0.0.2: a rota "consulta-recebimento"
 // agora recupera o valor de um Cloudflare Data Base KV.
 // - Sobre a versão 0.0.3: adicionado a opcao de teste com criterios bem especificos.
