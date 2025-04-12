@@ -24,13 +24,13 @@ export default {
       let hmacParam = null;
 
       // Autorizacao totalmente restrita de Recebimento-TESTE.
-      // Necessario: url-webhook/recebimento?hideGET-0000000=TEST_PASS
-      const hideGetParam = url.searchParams.get(env.HIDE_PARAM);
-      if (hideGetParam == env.TEST_PASS) {
+      // Necessario: url-webhook/recebimento?hidePARAM-0000000=TEST_PASS
+      const hideParam = url.searchParams.get(env.HIDE_PARAM);
+      if (hideParam == env.TEST_PASS) {
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideGetParam || hideGetParam !== env.HIDE_PARAM) {
+      } else if (!hideParam || hideParam !== env.HIDE_PARAM) {
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
