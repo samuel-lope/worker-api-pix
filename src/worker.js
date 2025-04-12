@@ -161,7 +161,7 @@ function handleOptions(request) {
     "Access-Control-Allow-Headers": requestHeaders || "*",
     "Access-Control-Max-Age": "86400"
   };
-  return new Response("OK", { status: 204, headers });
+  return new Response(null, { status: 204, headers });
 }
 
 /**
