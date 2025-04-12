@@ -1,89 +1,80 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.3
-// - Sobre a versão 0.0.2: a rota "consulta-recebimento"
-// agora recupera o valor de um Cloudflare Data Base KV.
-// - Sobre a versão 0.0.3: adicionado a opcao de teste com criterios bem especificos.
+// version: 0.0.3 (com CORS adaptado)
 
+// Exporta o Worker usando o formato de módulo (ES Modules)
 export default {
   /**
-   * @param {{ url: string | URL; headers: { get: (arg0: string) => any; }; method: string; json: () => any; }} request
+   * @param {Request} request
    * @param {{ HMAC: string; HIDE_PARAM: string; EFI_IP: string; TEST_PASS: string;
    *           MY_R2: { put: (arg0: string, arg1: string) => any; get: (arg0: string) => any; };
    *           MY_KV: { put: (arg0: string, arg1: string) => any; get: (arg0: string, arg1?: string) => any; };
    *           DATA_D1: { prepare: (query: string) => any; }; }} env
    */
-
   async fetch(request, env) {
-    // Politicas de CORS
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "https://post.samuellopes.com.br",
-      "Access-Control-Allow-Credentials": "true",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    };
-
-    // Responde à requisição OPTIONS (preflight) com as políticas CORS
+    // Se for uma requisição de preflight OPTIONS, responda imediatamente.
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
+      return handleOptions(request);
     }
-    
-    const url = new URL(request.url);
-    
-    // Endpoint para receber notificações
-    if (url.pathname === "/recebimento") {
 
+    // Obtenha a URL da requisição para uso na lógica de roteamento.
+    const url = new URL(request.url);
+    let response; // variável para conter a resposta que será processada
+
+    // ------------------------------
+    // Endpoint para /recebimento
+    // ------------------------------
+    if (url.pathname === "/recebimento") {
       let clientIp = null;
       let hmacParam = null;
 
-      // Autorizacao totalmente restrita de Recebimento-TESTE.
-      // Necessario: url-webhook/recebimento?hidePARAM-0000000=TEST_PASS
+      // Caso se trate de um recebimento de teste
       const hideParam = url.searchParams.get(env.HIDE_PARAM);
-      if (hideParam == env.TEST_PASS) {
+      if (hideParam === env.TEST_PASS) {
+        // Força os valores para teste
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
-      // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideParam || hideParam !== env.HIDE_PARAM) {
+      } else {
+        // Modo normal: usa os valores enviados
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
 
       // Validação do IP de origem
       if (clientIp !== env.EFI_IP) {
-        return new Response("Endereço IP não autorizado", { status: 403 });
+        response = new Response("Endereço IP não autorizado", { status: 403 });
+        return handleResponse(response);
       }
-      
-      // Validação do HMAC usando a variável de ambiente env.HMAC
+
+      // Validação do HMAC
       if (!hmacParam || hmacParam !== env.HMAC) {
-        return new Response("HMAC inválido ou ausente", { status: 401 });
+        response = new Response("HMAC inválido ou ausente", { status: 401 });
+        return handleResponse(response);
       }
-      
-      // Recebimento e tratamento de dados do Webhook.
+
+      // Apenas processa requisições POST
       if (request.method === "POST") {
         try {
-          // Ler o corpo da requisição como JSON
+          // Tente ler o corpo como JSON
           const data = await request.json();
 
-          // Processar os dados do campo "pix"
-          // Supondo que "pix" seja um array de objetos
+          // Processa os dados do campo "pix" (supondo que seja um array de objetos)
           if (data.pix && Array.isArray(data.pix)) {
             for (const item of data.pix) {
-              // Extrai as chaves "endToEndId", "txid", "chave" e "valor"
+              // Extrai as chaves necessárias
               const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
-              
-              // Exemplo de persistência no R2 utilizando o txid para formar o nome do arquivo
+
+              // Persistência no R2: grava um arquivo com o txid no nome
               if (txid && valor) {
                 await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
               }
 
-              // Exemplo de persistência no KV, utilizando txid como chave
-              // Aqui, armazenamos um objeto JSON com a chave "valor"
+              // Persistência no KV: armazena um objeto JSON com a chave "valor" usando txid como chave
               if (txid && valor) {
                 await env.MY_KV.put(txid, JSON.stringify({ valor }));
               }
-              
-              // Inserção dos dados na base D1:
-              // Verifica se todas as colunas estão presentes antes de inserir
+
+              // Inserção no banco D1: insere os dados na tabela "recebimentos" se todos os valores estiverem presentes
               if (endToEndId && txid && chave && valor && horario) {
                 const stmt = env.DATA_D1.prepare(
                   "INSERT INTO recebimentos (eeid, pagador, datahora, txid, chavepix, valor) VALUES (?, ?, ?, ?, ?, ?)"
@@ -92,74 +83,100 @@ export default {
               }
             }
           }
-  
+
           console.log("Dados recebidos e persistidos:", data);
-  
-          return new Response(
-            JSON.stringify({ success: true, message: "Sucesso, Ok!" }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          response = new Response(JSON.stringify({ success: true, message: "Sucesso, Ok!" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          });
         } catch (err) {
-          return new Response(
-            JSON.stringify({ success: false, error: err.message }),
-            {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          response = new Response(JSON.stringify({ success: false, error: err.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+          });
         }
       } else {
-        // Se o método não for POST, retorna erro 405
-        return new Response(
-          "Método não suportado. Use POST para enviar notificações.",
-          { status: 405 }
-        );
+        response = new Response("Método não suportado. Use POST para enviar notificações.", { status: 405 });
       }
     }
+    // -----------------------------------------
+    // Endpoint para /consulta-recebimento
+    // -----------------------------------------
+    else if (url.pathname === "/consulta-recebimento") {
+      const idmaqParam = url.searchParams.get("idmaq");
+      try {
+        // Recupera o valor do objeto KV como JSON
+        let jsonData = await env.MY_KV.get(idmaqParam, "json");
 
-// Endpoint para consulta dos dados persistidos e atualização do valor
-else if (url.pathname === "/consulta-recebimento") {
-  const idmaqParam = url.searchParams.get("idmaq");
+        // Se não encontrado, retorne 404
+        if (jsonData === null || jsonData === undefined) {
+          response = new Response("ID Not Found.", { status: 404 });
+          return handleResponse(response);
+        }
 
-  try {
-    // Obter o valor do objeto KV como JSON
-    let jsonData = await env.MY_KV.get(idmaqParam, "json");
+        // Se o dado não for objeto (por exemplo, um número), transforma-o em objeto.
+        if (typeof jsonData !== "object") {
+          jsonData = { valor: jsonData };
+        }
 
-    // Se o objeto não for encontrado, retorna 404
-    if (jsonData === null || jsonData === undefined) {
-      return new Response("ID Not Found.", { status: 404 });
-    }
+        // Prepara a resposta com o valor lido originalmente
+        const responseData = JSON.stringify(jsonData);
 
-    // Se o dado não for um objeto (por exemplo, é um número), então o transformamos em objeto.
-    if (typeof jsonData !== "object") {
-      jsonData = { valor: jsonData };
-    }
+        // Atualiza o valor para 0 e grava novamente no KV.
+        jsonData.valor = 0;
+        await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
 
-    // Prepara a resposta com o valor lido originalmente
-    const responseData = JSON.stringify(jsonData);
-
-    // Atualiza a chave "valor" para 0 (número) e grava novamente no KV.
-    jsonData.valor = 0;
-    await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
-
-    return new Response(responseData, {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
+        response = new Response(responseData, {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        response = new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
       }
-    );
-  }
-} else {
-      return new Response("Endpoint não encontrado.", { status: 404 });
     }
+    // -----------------------------------------
+    // Se nenhum endpoint corresponder
+    // -----------------------------------------
+    else {
+      response = new Response("Endpoint não encontrado.", { status: 404 });
+    }
+
+    // Por fim, sempre retorne a resposta com os headers de CORS
+    return handleResponse(response);
   }
 };
+
+/**
+ * Retorna uma resposta OPTIONS com os headers CORS apropriados.
+ * @param {Request} request
+ */
+function handleOptions(request) {
+  const requestHeaders = request.headers.get("Access-Control-Request-Headers");
+  const headers = {
+    "Access-Control-Allow-Origin": "*", // ou especifique o domínio desejado
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": requestHeaders || "*",
+    "Access-Control-Max-Age": "86400"
+  };
+  return new Response(null, { status: 204, headers });
+}
+
+/**
+ * Adiciona ou sobrescreve os headers de CORS na resposta final.
+ * @param {Response} response
+ */
+function handleResponse(response) {
+  let newHeaders = new Headers(response.headers);
+  // Adiciona ou atualiza os headers CORS
+  newHeaders.set("Access-Control-Allow-Origin", "*");  // ajuste para um domínio específico se necessário
+  newHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  newHeaders.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders
+  });
+}
