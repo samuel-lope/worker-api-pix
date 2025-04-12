@@ -2,11 +2,13 @@
   "name": "apix-v1",
   "compatibility_date": "2025-04-12",
   "main": "src/worker.js",
+  "vars": {
+    "EFI_IP": "34.193.116.226"
+  },
   "observability": {
     "logs": {
       "enabled": true
     }
   }
 }
-
 
