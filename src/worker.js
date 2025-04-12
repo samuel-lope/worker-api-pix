@@ -17,7 +17,7 @@ export default {
   async fetch(request, env) {
     // Politicas de CORS
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": "https://post.samuellopes.com.br",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
