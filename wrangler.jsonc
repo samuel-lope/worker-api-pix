@@ -7,6 +7,7 @@
      "observability": {
         "logs": {
           "enabled": true
+         }
     }
 }
 
