@@ -71,7 +71,8 @@ export default {
 
               // Persistência no KV: armazena um objeto JSON com a chave "valor" usando txid como chave
               if (txid && valor) {
-                await env.MY_KV.put(txid, JSON.stringify({ valor }));
+                //await env.MY_KV.put(txid, JSON.stringify({ valor }));
+                await env.MY_KV.put(txid, valor);
               }
 
               // Inserção no banco D1: insere os dados na tabela "recebimentos" se todos os valores estiverem presentes
