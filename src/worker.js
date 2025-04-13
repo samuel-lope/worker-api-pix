@@ -107,7 +107,8 @@ export default {
       const idmaqParam = url.searchParams.get("idmaq");
       try {
         // Recupera o valor do objeto KV como JSON
-        let jsonData = await env.MY_KV.get(idmaqParam, "json");
+        //let jsonData = await env.MY_KV.get(idmaqParam, "json");
+        let jsonData = await env.MY_KV.get(idmaqParam, valor);
 
         // Se não encontrado, retorne 404
         if (jsonData === null || jsonData === undefined) {
@@ -116,18 +117,19 @@ export default {
         }
 
         // Se o dado não for objeto (por exemplo, um número), transforma-o em objeto.
-        if (typeof jsonData !== "object") {
-          jsonData = { valor: jsonData };
-        }
+        // if (typeof jsonData !== "object") {
+        //   jsonData = { valor: jsonData };
+        // }
 
         // Prepara a resposta com o valor lido originalmente
         // const responseData = JSON.stringify(jsonData);
         const responseData = jsonData;
 
         // Atualiza o valor para 0 e grava novamente no KV.
-        jsonData.valor = 0.00;
+         //jsonData.valor = 0.00;
+         jsonData = 0.00;
         //await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
-        await env.MY_KV.put(idmaqParam, jsonData.valor);
+        await env.MY_KV.put(idmaqParam, jsonData);
 
         response = new Response(responseData, {
           status: 200,
