@@ -1,13 +1,13 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.4 (sem MY_KV e usando a tabela "consultas" no D1 para persistência do valor)
+// version: 0.0.5 (adicionado lógica para trabalhar com D1 database no lugar de KV)
 
 /**
- * O Worker utiliza as seguintes bindings:
- * - DATA_D1: Banco de dados D1 (Cloudflare D1)
- * - MY_R2: Bucket R2 para armazenamento de arquivos
+ * Este Worker utiliza os seguintes bindings:
+ * - DATA_D1: Banco de dados D1 (Cloudflare D1) para operações SQL.
+ * - MY_R2: Bucket R2 para armazenamento de arquivos.
  *
- * As variáveis de ambiente (via env.vars) incluem:
+ * Variáveis de ambiente (env.vars) incluem:
  * HMAC, HIDE_PARAM, EFI_IP, TEST_PASS.
  */
 
@@ -30,7 +30,7 @@ export default {
     }
 
     const url = new URL(request.url);
-    let response; // Será definida conforme o endpoint
+    let response; // variável para conter a resposta
 
     // ------------------------------------
     // Endpoint: /recebimento
@@ -39,19 +39,17 @@ export default {
       let clientIp = null;
       let hmacParam = null;
 
-      // Verifica se se trata de uma requisição de teste usando o parâmetro configurado.
+      // Verifica se é uma requisição de teste
       const hideParam = url.searchParams.get(env.HIDE_PARAM);
       if (hideParam === env.TEST_PASS) {
-        // Modo teste: força valores de IP e HMAC
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       } else {
-        // Modo normal: utiliza valores enviados na requisição
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
 
-      // Validação do IP
+      // Validação do IP de origem
       if (clientIp !== env.EFI_IP) {
         response = new Response("Endereço IP não autorizado", { status: 403 });
         return handleResponse(response);
@@ -67,17 +65,17 @@ export default {
         try {
           const data = await request.json();
 
-          // Processamento dos dados no campo "pix"
+          // Processa os dados do campo "pix" (supondo que seja um array de objetos)
           if (data.pix && Array.isArray(data.pix)) {
             for (const item of data.pix) {
               const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
 
-              // Persistência no R2: grava o arquivo identificando-o com "txid"
+              // Persistência no R2: grava um arquivo identificando-o com "txid"
               if (txid && valor) {
                 await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
               }
 
-              // Inserção em "recebimentos" na base D1 (mantemos a inserção original, se necessária)
+              // Inserção em "recebimentos" (tabela existente para registro de detalhes)
               if (endToEndId && txid && chave && valor && horario) {
                 const stmtReceb = env.DATA_D1.prepare(
                   "INSERT INTO recebimentos (eeid, pagador, datahora, txid, chavepix, valor) VALUES (?, ?, ?, ?, ?, ?)"
@@ -85,15 +83,22 @@ export default {
                 await stmtReceb.bind(endToEndId, gnExtras.pagador.nome, horario, txid, chave, valor).run();
               }
 
-              // NOVO: Verifica se o txid já existe na tabela "consultas". Se não existir, insere-o.
+              // Nova lógica para a tabela "consultas":
+              // Se o txid não existe na tabela "consultas", insere uma nova linha;
+              // Caso já exista, faz um UPDATE adicionando o novo valor ao valor existente.
               if (txid && valor !== undefined && valor !== null) {
-                const selectStmt = env.DATA_D1.prepare("SELECT txid FROM consultas WHERE txid = ?");
-                const selectResult = await selectStmt.bind(txid).all();
-                if (!selectResult.results || selectResult.results.length === 0) {
-                  // Converte o valor para número
-                  const numValor = Number(valor);
+                const numValor = Number(valor);
+                // Verifica se já existe a linha com o txid
+                const selectStmt = env.DATA_D1.prepare("SELECT txid, valor FROM consultas WHERE txid = ?");
+                const selectResult = await selectStmt.bind(txid).first();
+                if (!selectResult) {
+                  // Não existe: insere a nova linha
                   const insertStmt = env.DATA_D1.prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)");
                   await insertStmt.bind(txid, numValor).run();
+                } else {
+                  // Já existe: faz UPDATE somando o novo valor ao valor já armazenado
+                  const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = valor + ? WHERE txid = ?");
+                  await updateStmt.bind(numValor, txid).run();
                 }
               }
             }
@@ -118,21 +123,18 @@ export default {
     // Endpoint: /consulta-recebimento
     // ------------------------------------
     else if (url.pathname === "/consulta-recebimento") {
-      // Assume que o parâmetro "idmaq" é o txid para consulta
-      const txidParam = url.searchParams.get("idmaq");
+      const txidParam = url.searchParams.get("idmaq"); // aqui, "idmaq" é o txid a consultar
       try {
-        // Consulta o valor na tabela "consultas" para o txid
         const selectStmt = env.DATA_D1.prepare("SELECT valor FROM consultas WHERE txid = ?");
         const result = await selectStmt.bind(txidParam).first();
         if (!result) {
           response = new Response("ID Not Found.", { status: 404 });
           return handleResponse(response);
         }
-        // Armazena o valor (espera-se um número, ex.: 0.03)
+        // Recupera o valor (espera-se que seja um número, exemplo: 0.03)
         const valorConsultado = result.valor;
-        // Prepara a resposta; aqui, retornamos apenas o valor (por exemplo, 0.03)
         const responseData = JSON.stringify(valorConsultado);
-        // Realiza o UPDATE definindo o valor para 0 na tabela "consultas"
+        // Após consulta, atualiza o valor para 0
         const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ? WHERE txid = ?");
         await updateStmt.bind(0, txidParam).run();
         response = new Response(responseData, {
@@ -173,12 +175,12 @@ function handleOptions(request) {
 }
 
 /**
- * Adiciona os headers CORS à resposta final.
+ * Adiciona ou sobrescreve os headers de CORS na resposta final.
  * @param {Response} response
  */
 function handleResponse(response) {
   let newHeaders = new Headers(response.headers);
-  newHeaders.set("Access-Control-Allow-Origin", "*");  // ajuste para um domínio específico se necessário
+  newHeaders.set("Access-Control-Allow-Origin", "*"); // ajuste conforme necessário
   newHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   newHeaders.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return new Response(response.body, {
