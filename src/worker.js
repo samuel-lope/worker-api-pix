@@ -125,7 +125,8 @@ export default {
 
         // Atualiza o valor para 0 e grava novamente no KV.
         jsonData.valor = 0.00;
-        await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
+        //await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
+        await env.MY_KV.put(idmaqParam, jsonData.valor);
 
         response = new Response(responseData, {
           status: 200,
