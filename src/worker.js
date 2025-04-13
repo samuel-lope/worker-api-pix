@@ -1,6 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.3 (com CORS adaptado)
+// version: 0.0.3 (com CORS adaptado e KV usando valores numéricos)
 
 // Exporta o Worker usando o formato de módulo (ES Modules)
 export default {
@@ -69,10 +69,11 @@ export default {
                 await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
               }
 
-              // Persistência no KV: armazena um objeto JSON com a chave "valor" usando txid como chave
-              if (txid && valor) {
-                //await env.MY_KV.put(txid, JSON.stringify({ valor }));
-                await env.MY_KV.put(txid, valor);
+              // Persistência no KV:
+              // Converte o valor para número, e armazena-o diretamente (por exemplo, 0.03)
+              if (txid && valor !== undefined && valor !== null) {
+                const numValor = Number(valor);
+                await env.MY_KV.put(txid, JSON.stringify(numValor));
               }
 
               // Inserção no banco D1: insere os dados na tabela "recebimentos" se todos os valores estiverem presentes
@@ -107,29 +108,20 @@ export default {
       const idmaqParam = url.searchParams.get("idmaq");
       try {
         // Recupera o valor do objeto KV como JSON
-        //let jsonData = await env.MY_KV.get(idmaqParam, "json");
-        let jsonData = await env.MY_KV.get(idmaqParam, valor);
+        // Aqui, esperamos que o valor armazenado seja um número (por exemplo, 0.03)
+        let storedValue = await env.MY_KV.get(idmaqParam, "json");
 
-        // Se não encontrado, retorne 404
-        if (jsonData === null || jsonData === undefined) {
+        // Se o objeto não for encontrado, retorna 404
+        if (storedValue === null || storedValue === undefined) {
           response = new Response("ID Not Found.", { status: 404 });
           return handleResponse(response);
         }
 
-        // Se o dado não for objeto (por exemplo, um número), transforma-o em objeto.
-        // if (typeof jsonData !== "object") {
-        //   jsonData = { valor: jsonData };
-        // }
+        // Prepara a resposta com o valor lido originalmente (como número)
+        const responseData = JSON.stringify(storedValue);
 
-        // Prepara a resposta com o valor lido originalmente
-        // const responseData = JSON.stringify(jsonData);
-        const responseData = jsonData.valor;
-
-        // Atualiza o valor para 0 e grava novamente no KV.
-         //jsonData.valor = 0.00;
-         jsonData.valor = 0.00;
-        //await env.MY_KV.put(idmaqParam, JSON.stringify(jsonData));
-        await env.MY_KV.put(idmaqParam, jsonData.valor);
+        // Atualiza o valor para 0 (número) e grava novamente no KV.
+        await env.MY_KV.put(idmaqParam, JSON.stringify(0));
 
         response = new Response(responseData, {
           status: 200,
