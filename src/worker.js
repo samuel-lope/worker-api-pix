@@ -121,7 +121,8 @@ export default {
         }
 
         // Prepara a resposta com o valor lido originalmente
-        const responseData = JSON.stringify(jsonData);
+        // const responseData = JSON.stringify(jsonData);
+        const responseData = jsonData;
 
         // Atualiza o valor para 0 e grava novamente no KV.
         jsonData.valor = 0.00;
