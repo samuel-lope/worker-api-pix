@@ -1,46 +1,57 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.3 (com CORS adaptado e KV usando valores numéricos)
+// version: 0.0.4 (sem MY_KV e usando a tabela "consultas" no D1 para persistência do valor)
 
-// Exporta o Worker usando o formato de módulo (ES Modules)
+/**
+ * O Worker utiliza as seguintes bindings:
+ * - DATA_D1: Banco de dados D1 (Cloudflare D1)
+ * - MY_R2: Bucket R2 para armazenamento de arquivos
+ *
+ * As variáveis de ambiente (via env.vars) incluem:
+ * HMAC, HIDE_PARAM, EFI_IP, TEST_PASS.
+ */
+
 export default {
   /**
    * @param {Request} request
-   * @param {{ HMAC: string; HIDE_PARAM: string; EFI_IP: string; TEST_PASS: string;
-   *           MY_R2: { put: (arg0: string, arg1: string) => any; get: (arg0: string) => any; };
-   *           MY_KV: { put: (arg0: string, arg1: string) => any; get: (arg0: string, arg1?: string) => any; };
-   *           DATA_D1: { prepare: (query: string) => any; }; }} env
+   * @param {{
+   *    HMAC: string;
+   *    HIDE_PARAM: string;
+   *    EFI_IP: string;
+   *    TEST_PASS: string;
+   *    MY_R2: { put: (arg0: string, arg1: string) => Promise<any>; get: (arg0: string) => Promise<any>; };
+   *    DATA_D1: { prepare: (query: string) => any; };
+   * }} env
    */
   async fetch(request, env) {
-    // Se for uma requisição de preflight OPTIONS, responda imediatamente.
+    // Responde imediatamente às requisições OPTIONS com os headers CORS.
     if (request.method === "OPTIONS") {
       return handleOptions(request);
     }
 
-    // Obtenha a URL da requisição para uso na lógica de roteamento.
     const url = new URL(request.url);
-    let response; // variável para conter a resposta que será processada
+    let response; // Será definida conforme o endpoint
 
-    // ------------------------------
-    // Endpoint para /recebimento
-    // ------------------------------
+    // ------------------------------------
+    // Endpoint: /recebimento
+    // ------------------------------------
     if (url.pathname === "/recebimento") {
       let clientIp = null;
       let hmacParam = null;
 
-      // Caso se trate de um recebimento de teste
+      // Verifica se se trata de uma requisição de teste usando o parâmetro configurado.
       const hideParam = url.searchParams.get(env.HIDE_PARAM);
       if (hideParam === env.TEST_PASS) {
-        // Força os valores para teste
+        // Modo teste: força valores de IP e HMAC
         clientIp = env.EFI_IP;
         hmacParam = env.HMAC;
       } else {
-        // Modo normal: usa os valores enviados
+        // Modo normal: utiliza valores enviados na requisição
         clientIp = request.headers.get("CF-Connecting-IP");
         hmacParam = url.searchParams.get("hmac");
       }
 
-      // Validação do IP de origem
+      // Validação do IP
       if (clientIp !== env.EFI_IP) {
         response = new Response("Endereço IP não autorizado", { status: 403 });
         return handleResponse(response);
@@ -52,36 +63,38 @@ export default {
         return handleResponse(response);
       }
 
-      // Apenas processa requisições POST
       if (request.method === "POST") {
         try {
-          // Tente ler o corpo como JSON
           const data = await request.json();
 
-          // Processa os dados do campo "pix" (supondo que seja um array de objetos)
+          // Processamento dos dados no campo "pix"
           if (data.pix && Array.isArray(data.pix)) {
             for (const item of data.pix) {
-              // Extrai as chaves necessárias
               const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
 
-              // Persistência no R2: grava um arquivo com o txid no nome
+              // Persistência no R2: grava o arquivo identificando-o com "txid"
               if (txid && valor) {
                 await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
               }
 
-              // Persistência no KV:
-              // Converte o valor para número, e armazena-o diretamente (por exemplo, 0.03)
-              if (txid && valor !== undefined && valor !== null) {
-                const numValor = Number(valor);
-                await env.MY_KV.put(txid, JSON.stringify(numValor));
-              }
-
-              // Inserção no banco D1: insere os dados na tabela "recebimentos" se todos os valores estiverem presentes
+              // Inserção em "recebimentos" na base D1 (mantemos a inserção original, se necessária)
               if (endToEndId && txid && chave && valor && horario) {
-                const stmt = env.DATA_D1.prepare(
+                const stmtReceb = env.DATA_D1.prepare(
                   "INSERT INTO recebimentos (eeid, pagador, datahora, txid, chavepix, valor) VALUES (?, ?, ?, ?, ?, ?)"
                 );
-                await stmt.bind(endToEndId, gnExtras.pagador.nome, horario, txid, chave, valor).run();
+                await stmtReceb.bind(endToEndId, gnExtras.pagador.nome, horario, txid, chave, valor).run();
+              }
+
+              // NOVO: Verifica se o txid já existe na tabela "consultas". Se não existir, insere-o.
+              if (txid && valor !== undefined && valor !== null) {
+                const selectStmt = env.DATA_D1.prepare("SELECT txid FROM consultas WHERE txid = ?");
+                const selectResult = await selectStmt.bind(txid).all();
+                if (!selectResult.results || selectResult.results.length === 0) {
+                  // Converte o valor para número
+                  const numValor = Number(valor);
+                  const insertStmt = env.DATA_D1.prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)");
+                  await insertStmt.bind(txid, numValor).run();
+                }
               }
             }
           }
@@ -101,28 +114,27 @@ export default {
         response = new Response("Método não suportado. Use POST para enviar notificações.", { status: 405 });
       }
     }
-    // -----------------------------------------
-    // Endpoint para /consulta-recebimento
-    // -----------------------------------------
+    // ------------------------------------
+    // Endpoint: /consulta-recebimento
+    // ------------------------------------
     else if (url.pathname === "/consulta-recebimento") {
-      const idmaqParam = url.searchParams.get("idmaq");
+      // Assume que o parâmetro "idmaq" é o txid para consulta
+      const txidParam = url.searchParams.get("idmaq");
       try {
-        // Recupera o valor do objeto KV como JSON
-        // Aqui, esperamos que o valor armazenado seja um número (por exemplo, 0.03)
-        let storedValue = await env.MY_KV.get(idmaqParam, "json");
-
-        // Se o objeto não for encontrado, retorna 404
-        if (storedValue === null || storedValue === undefined) {
+        // Consulta o valor na tabela "consultas" para o txid
+        const selectStmt = env.DATA_D1.prepare("SELECT valor FROM consultas WHERE txid = ?");
+        const result = await selectStmt.bind(txidParam).first();
+        if (!result) {
           response = new Response("ID Not Found.", { status: 404 });
           return handleResponse(response);
         }
-
-        // Prepara a resposta com o valor lido originalmente (como número)
-        const responseData = JSON.stringify(storedValue);
-
-        // Atualiza o valor para 0 (número) e grava novamente no KV.
-        await env.MY_KV.put(idmaqParam, JSON.stringify(0));
-
+        // Armazena o valor (espera-se um número, ex.: 0.03)
+        const valorConsultado = result.valor;
+        // Prepara a resposta; aqui, retornamos apenas o valor (por exemplo, 0.03)
+        const responseData = JSON.stringify(valorConsultado);
+        // Realiza o UPDATE definindo o valor para 0 na tabela "consultas"
+        const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ? WHERE txid = ?");
+        await updateStmt.bind(0, txidParam).run();
         response = new Response(responseData, {
           status: 200,
           headers: { "Content-Type": "application/json" }
@@ -134,14 +146,13 @@ export default {
         });
       }
     }
-    // -----------------------------------------
-    // Se nenhum endpoint corresponder
-    // -----------------------------------------
+    // ------------------------------------
+    // Endpoint não encontrado
+    // ------------------------------------
     else {
       response = new Response("Endpoint não encontrado.", { status: 404 });
     }
 
-    // Por fim, sempre retorne a resposta com os headers de CORS
     return handleResponse(response);
   }
 };
@@ -162,12 +173,11 @@ function handleOptions(request) {
 }
 
 /**
- * Adiciona ou sobrescreve os headers de CORS na resposta final.
+ * Adiciona os headers CORS à resposta final.
  * @param {Response} response
  */
 function handleResponse(response) {
   let newHeaders = new Headers(response.headers);
-  // Adiciona ou atualiza os headers CORS
   newHeaders.set("Access-Control-Allow-Origin", "*");  // ajuste para um domínio específico se necessário
   newHeaders.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   newHeaders.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
