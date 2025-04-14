@@ -1,10 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.8-alpha
-//    Informações da versão:
-//    - correção de problema com recebimento de valores com ponto flutuante
-//    - atualizado para atualizar também o campo "datahora" no endpoint /recebimento
-//    - versão estável, sem uso de KV para persistência de dados
+// version: 0.0.11 (remoção da exibição da coluna "datahora" na tabela TXT, mantendo-a para ordenação)
 
 /**
  * Este Worker utiliza os seguintes bindings:
@@ -127,6 +123,11 @@ async function appRecebimento(request, env) {
  * - Inserção na tabela "recebimentos"
  * - Inserção/atualização na tabela "consultas"
  * 
+ * A atualização na tabela "consultas":
+ * - Arredonda o novo valor recebido para no máximo duas casas decimais;
+ * - Se o registro já existir, o novo valor é somado ao valor existente (também arredondado);
+ * - O campo "datahora" é atualizado.
+ *
  * @param {object} item - Objeto contendo os dados do PIX.
  * @param {*} env - Ambiente com bindings para R2 e D1.
  */
@@ -147,21 +148,24 @@ async function processPixItem(item, env) {
   }
 
   // Lógica para a tabela "consultas":
-  // Insere uma nova linha se não existir ou faz um UPDATE somando o novo valor e atualizando a datahora.
+  // Insere uma nova linha se não existir ou atualiza somando o novo valor e atualizando a datahora.
   if (txid && valor !== undefined && valor !== null) {
     const numValor = Number(valor);
+    // Arredonda o novo valor para no máximo duas casas decimais
+    const roundedValue = Math.round(numValor * 100) / 100;
+    
     // Verifica se já existe a linha com o txid
     const selectStmt = env.DATA_D1.prepare("SELECT txid, valor FROM consultas WHERE txid = ?");
     const selectResult = await selectStmt.bind(txid).first();
     if (!selectResult) {
-      // Insere uma nova linha
+      // Insere uma nova linha com o valor arredondado
       const insertStmt = env.DATA_D1.prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)");
-      await insertStmt.bind(txid, numValor).run();
+      await insertStmt.bind(txid, roundedValue).run();
     } else {
       // Atualiza somando o novo valor ao valor existente e atualiza o campo datahora.
       // A soma é arredondada para duas casas decimais usando a função ROUND do SQLite.
       const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ROUND(valor + ?, 2), datahora = ? WHERE txid = ?");
-      await updateStmt.bind(numValor, horario, txid).run();
+      await updateStmt.bind(roundedValue, horario, txid).run();
     }
   }
 }
@@ -210,8 +214,8 @@ async function appConsultaRecebimento(request, env) {
  * Novo App responsável por tratar o endpoint /consulta-database
  * 
  * Permite consultar todas as linhas de uma tabela (restrita a "recebimentos" ou "consultas")
- * exibindo apenas as colunas "txid", "valor" e "datahora". O resultado é formatado como texto
- * com colunas separadas por "|" e quebras de linha extras para melhorar a visualização.
+ * exibindo apenas as colunas "txid" e "valor". O resultado é formatado como uma tabela
+ * de texto com bordas, conforme exemplo anexo.
  * 
  * Os dados serão apresentados ordenados pelo campo "datahora" em ordem decrescente
  * (os registros mais recentes aparecem primeiro).
@@ -239,30 +243,23 @@ async function appConsultaDatabase(request, env) {
   }
 
   try {
-    // Consulta apenas as colunas obrigatórias e ordena por "datahora" em ordem decrescente
+    // Consulta inclui o campo "datahora" para ordenação, mas ele não será exibido
     const queryStmt = env.DATA_D1.prepare(
       `SELECT txid, valor, datahora FROM ${db} ORDER BY datahora DESC`
     );
     const result = await queryStmt.all();
     let rows = result.results;
-    let headers;
 
-    if (rows && rows.length > 0) {
-      headers = Object.keys(rows[0]);
-    } else {
-      // Se não houver registros, recupera o esquema da tabela para identificar as colunas
-      const pragmaStmt = env.DATA_D1.prepare(`PRAGMA table_info(${db})`);
-      const pragmaResult = await pragmaStmt.all();
-      if (pragmaResult.results && pragmaResult.results.length > 0) {
-        headers = pragmaResult.results.map(col => col.name);
-        // Filtra apenas as colunas desejadas
-        headers = headers.filter(col => ["txid", "valor", "datahora"].includes(col));
-      } else {
-        return new Response("Não foi possível determinar as colunas da tabela.", { status: 500 });
-      }
-    }
+    // Mapeia os registros para exibir apenas as colunas "txid" e "valor"
+    const outputRows = rows.map(row => ({
+      txid: row.txid,
+      valor: row.valor
+    }));
 
-    const formattedTable = formatTable(headers, rows);
+    // Define os headers fixos para saída: apenas "txid" e "valor"
+    const outputHeaders = ["txid", "valor"];
+
+    const formattedTable = formatTable(outputHeaders, outputRows);
     const responseText = `Tabela ${db}:\n\n${formattedTable}`;
     return new Response(responseText, {
       status: 200,
@@ -312,17 +309,18 @@ function handleResponse(response) {
 }
 
 /**
- * Formata os dados em forma de tabela de texto, com colunas separadas por "|" e alinhadas.
- * Adiciona uma quebra de linha extra após a linha de cabeçalho para melhorar a visualização.
+ * Formata os dados em forma de tabela de texto com bordas, conforme o exemplo anexado.
+ * A tabela inclui:
+ * - Uma linha de borda no início, após o cabeçalho e no final.
+ * - Cabeçalho e linhas de dados com colunas separadas por "|" e espaços para alinhamento.
  *
- * @param {string[]} headers - Array com os nomes das colunas.
- * @param {object[]} rows - Array de objetos com os registros retornados.
+ * @param {string[]} headers - Array com os nomes das colunas a serem exibidas.
+ * @param {object[]} rows - Array de objetos com os registros a serem exibidos.
  * @returns {string} Tabela formatada em texto.
  */
 function formatTable(headers, rows) {
-  // Calcula o tamanho máximo de cada coluna
+  // Calcula o tamanho máximo de cada coluna, considerando os headers e os dados
   const colWidths = headers.map(header => header.length);
-
   for (const row of rows) {
     headers.forEach((header, idx) => {
       const cell = row[header] !== null && row[header] !== undefined ? String(row[header]) : "";
@@ -330,29 +328,24 @@ function formatTable(headers, rows) {
     });
   }
 
-  // Cria a linha de cabeçalho
-  const headerRow = "| " + headers.map((header, idx) => padString(header, colWidths[idx])).join(" | ") + " |";
+  // Função auxiliar para preencher com espaços
+  const pad = (str, width) => str + " ".repeat(width - str.length);
+
+  // Cria a linha de borda (ex: +-----+-------+-----+)
+  const borderLine = "+" + colWidths.map(width => "-".repeat(width + 2)).join("+") + "+";
+
+  // Cria a linha de cabeçalho (ex: | header1 | header2 | header3 |)
+  const headerRow = "| " + headers.map((header, idx) => pad(header, colWidths[idx])).join(" | ") + " |";
 
   // Cria as linhas dos registros
   const dataRows = rows.map(row => {
     return "| " + headers.map((header, idx) => {
       const cell = row[header] !== null && row[header] !== undefined ? String(row[header]) : "";
-      return padString(cell, colWidths[idx]);
+      return pad(cell, colWidths[idx]);
     }).join(" | ") + " |";
   });
 
-  // Insere uma quebra de linha adicional após o cabeçalho
-  return headerRow + "\n\n" + dataRows.join("\n");
-}
-
-/**
- * Preenche a string com espaços até que ela atinja o tamanho especificado.
- *
- * @param {string} str - A string a ser preenchida.
- * @param {number} width - O comprimento desejado.
- * @returns {string} A string preenchida.
- */
-function padString(str, width) {
-  return str + " ".repeat(width - str.length);
+  // Junta as partes: borda, cabeçalho, borda, dados e borda final
+  return [borderLine, headerRow, borderLine, ...dataRows, borderLine].join("\n");
 }
 
