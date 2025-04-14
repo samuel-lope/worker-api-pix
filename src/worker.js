@@ -1,6 +1,9 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.8 (atualizado para atualizar também o campo "datahora" no endpoint /recebimento)
+// version: 0.0.8-alpha
+//    Informações da versão:
+//    - atualizado para atualizar também o campo "datahora" no endpoint /recebimento
+//    - versão estável, sem uso de KV para persistência de dados
 
 /**
  * Este Worker utiliza os seguintes bindings:
