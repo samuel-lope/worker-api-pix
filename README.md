@@ -18,28 +18,6 @@ Adicionei variáveis de ambiente para ocultar chaves que permitem adicionar dado
 | HIDE_PARAM  | teste-e4f2aff                    | Parametro oculto para impedir adição indevida de créditos utilizando o ambiente de teste |
 | TEST_PASS | ffe822014ca58eae6349f561a5f2876c | Chave hexadecimal para validada. Chamada pelo parametro "teste-e4f2aff" (HIDE_GET)       |
 
-Abaixo, o trecho inicial do código do webhook (POST) com endpoint "/recebimento".
 
-```js
-// Endpoint para receber notificações
-    if (url.pathname === "/recebimento") {
-
-      let clientIp = null;
-      let hmacParam = null;
-
-      // Autorizacao totalmente restrita de Recebimento-TESTE.
-      // Necessario: url-webhook/recebimento?hidePARAM-0000000=TEST_PASS
-      const hideGetParam = url.searchParams.get(env.HIDE_PARAM);
-      if (hideGetParam == env.TEST_PASS) {
-        clientIp = env.EFI_IP;
-        hmacParam = env.HMAC;
-      // SE NAO for recebimento de teste, recebe dados da instituicao financeira.
-      } else if (!hideParam || hideParam !== env.HIDE_PARAM) {
-        clientIp = request.headers.get("CF-Connecting-IP");
-        hmacParam = url.searchParams.get("hmac");
-      }
-// o código continua...
-```
-As versões ainda estão sendo implementadas.
 
 
