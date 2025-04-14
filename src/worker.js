@@ -1,6 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.5 (adicionado lógica para trabalhar com D1 database no lugar de KV)
+// version: 0.0.6 (ajustada visualização da consulta de tabelas)
 
 /**
  * Este Worker utiliza os seguintes bindings:
@@ -17,13 +17,13 @@ export default {
    *
    * @param {Request} request
    * @param {{
-   *          HMAC: string;
-   *          HIDE_PARAM: string;
-   *          EFI_IP: string;
-   *          TEST_PASS: string;
-   *          MY_R2: { put: (arg0: string, arg1: string) => Promise<any>; get: (arg0: string) => Promise<any>; };
-   *          DATA_D1: { prepare: (query: string) => any; };
-   *         }} env
+   *    HMAC: string;
+   *    HIDE_PARAM: string;
+   *    EFI_IP: string;
+   *    TEST_PASS: string;
+   *    MY_R2: { put: (arg0: string, arg1: string) => Promise<any>; get: (arg0: string) => Promise<any>; };
+   *    DATA_D1: { prepare: (query: string) => any; };
+   * }} env
    */
   async fetch(request, env) {
     // Responde imediatamente às requisições OPTIONS com os headers CORS.
@@ -34,15 +34,16 @@ export default {
     const url = new URL(request.url);
     let response;
 
-//-----------------------------------
-// Roteamento dos endpoints
-//-----------------------------------
+    // Roteamento dos endpoints
     switch (url.pathname) {
       case "/recebimento":
         response = await appRecebimento(request, env);
         break;
       case "/consulta-recebimento":
         response = await appConsultaRecebimento(request, env);
+        break;
+      case "/consulta-database":
+        response = await appConsultaDatabase(request, env);
         break;
       default:
         response = new Response("Endpoint não encontrado.", { status: 404 });
@@ -201,6 +202,71 @@ async function appConsultaRecebimento(request, env) {
 }
 
 /**
+ * Novo App responsável por tratar o endpoint /consulta-database
+ * 
+ * Permite consultar todas as linhas de uma tabela (restrita a "recebimentos" ou "consultas")
+ * exibindo apenas as colunas "txid", "valor" e "datahora". O resultado é formatado como texto
+ * com colunas separadas por "|" e quebras de linha extras para melhorar a visualização.
+ *
+ * @param {Request} request 
+ * @param {*} env 
+ * @returns {Promise<Response>}
+ */
+async function appConsultaDatabase(request, env) {
+  if (request.method !== "GET") {
+    return new Response("Método não suportado. Use GET para consultar o banco de dados.", { status: 405 });
+  }
+
+  const url = new URL(request.url);
+  const db = url.searchParams.get("db");
+
+  if (!db) {
+    return new Response("Parâmetro 'db' ausente.", { status: 400 });
+  }
+
+  // Permite apenas tabelas autorizadas para consulta
+  const allowedTables = ["recebimentos", "consultas"];
+  if (!allowedTables.includes(db)) {
+    return new Response("Tabela não autorizada para consulta.", { status: 403 });
+  }
+
+  try {
+    // Consulta apenas as colunas obrigatórias
+    const queryStmt = env.DATA_D1.prepare(`SELECT txid, valor, datahora FROM ${db}`);
+    const result = await queryStmt.all();
+    let rows = result.results;
+    let headers;
+
+    if (rows && rows.length > 0) {
+      headers = Object.keys(rows[0]);
+    } else {
+      // Se não houver registros, recupera o esquema da tabela para identificar as colunas
+      const pragmaStmt = env.DATA_D1.prepare(`PRAGMA table_info(${db})`);
+      const pragmaResult = await pragmaStmt.all();
+      if (pragmaResult.results && pragmaResult.results.length > 0) {
+        headers = pragmaResult.results.map(col => col.name);
+        // Filtra apenas as colunas desejadas (caso existam)
+        headers = headers.filter(col => ["txid", "valor", "datahora"].includes(col));
+      } else {
+        return new Response("Não foi possível determinar as colunas da tabela.", { status: 500 });
+      }
+    }
+
+    const formattedTable = formatTable(headers, rows);
+    const responseText = `Tabela ${db}:\n\n${formattedTable}`;
+    return new Response(responseText, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ success: false, error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+
+/**
  * Retorna uma resposta OPTIONS com os headers CORS apropriados.
  *
  * @param {Request} request 
@@ -233,5 +299,50 @@ function handleResponse(response) {
     statusText: response.statusText,
     headers: newHeaders
   });
+}
+
+/**
+ * Formata os dados em forma de tabela de texto, com colunas separadas por "|" e alinhadas.
+ * Adiciona uma quebra de linha extra após a linha de cabeçalho para melhorar a visualização.
+ *
+ * @param {string[]} headers - Array com os nomes das colunas.
+ * @param {object[]} rows - Array de objetos com os registros retornados.
+ * @returns {string} Tabela formatada em texto.
+ */
+function formatTable(headers, rows) {
+  // Calcula o tamanho máximo de cada coluna
+  const colWidths = headers.map(header => header.length);
+
+  for (const row of rows) {
+    headers.forEach((header, idx) => {
+      const cell = row[header] !== null && row[header] !== undefined ? String(row[header]) : "";
+      colWidths[idx] = Math.max(colWidths[idx], cell.length);
+    });
+  }
+
+  // Cria a linha de cabeçalho
+  const headerRow = "| " + headers.map((header, idx) => padString(header, colWidths[idx])).join(" | ") + " |";
+
+  // Cria as linhas dos registros
+  const dataRows = rows.map(row => {
+    return "| " + headers.map((header, idx) => {
+      const cell = row[header] !== null && row[header] !== undefined ? String(row[header]) : "";
+      return padString(cell, colWidths[idx]);
+    }).join(" | ") + " |";
+  });
+
+  // Insere uma quebra de linha adicional após o cabeçalho
+  return headerRow + "\n\n" + dataRows.join("\n");
+}
+
+/**
+ * Preenche a string com espaços até que ela atinja o tamanho especificado.
+ *
+ * @param {string} str - A string a ser preenchida.
+ * @param {number} width - O comprimento desejado.
+ * @returns {string} A string preenchida.
+ */
+function padString(str, width) {
+  return str + " ".repeat(width - str.length);
 }
 
