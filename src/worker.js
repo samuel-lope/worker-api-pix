@@ -2,6 +2,7 @@
 // date: 04.2025
 // version: 0.0.8-alpha
 //    Informações da versão:
+//    - correção de problema com recebimento de valores com ponto flutuante
 //    - atualizado para atualizar também o campo "datahora" no endpoint /recebimento
 //    - versão estável, sem uso de KV para persistência de dados
 
@@ -157,8 +158,9 @@ async function processPixItem(item, env) {
       const insertStmt = env.DATA_D1.prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)");
       await insertStmt.bind(txid, numValor).run();
     } else {
-      // Atualiza somando o novo valor ao valor existente e atualiza o campo datahora
-      const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = valor + ?, datahora = ? WHERE txid = ?");
+      // Atualiza somando o novo valor ao valor existente e atualiza o campo datahora.
+      // A soma é arredondada para duas casas decimais usando a função ROUND do SQLite.
+      const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ROUND(valor + ?, 2), datahora = ? WHERE txid = ?");
       await updateStmt.bind(numValor, horario, txid).run();
     }
   }
