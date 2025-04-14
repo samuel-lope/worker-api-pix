@@ -1,5 +1,6 @@
 
 ## Efi API PIX usando Cloudflare Worker
+### Versão v0.0.3 alpha (estável)
 
 O webhook foi criando usando, unicamente, as ferramentas online disponíveis na página da Cloudflare.
 
