@@ -17,12 +17,6 @@
       "database_id": "a32acae2-f901-4a2e-83b6-fd5c450db4a1"
     }
   ],
-  "kv_namespaces": [
-    {
-      "binding": "MY_KV",
-      "id": "68ffff006d724c958f415be1341cb563"
-    }
-  ],
   "observability": {
     "logs": {
       "enabled": true
