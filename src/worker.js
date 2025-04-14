@@ -1,6 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.6 (ajustada visualização da consulta de tabelas)
+// version: 0.0.8 (atualizado para atualizar também o campo "datahora" no endpoint /recebimento)
 
 /**
  * Este Worker utiliza os seguintes bindings:
@@ -143,7 +143,7 @@ async function processPixItem(item, env) {
   }
 
   // Lógica para a tabela "consultas":
-  // Insere uma nova linha se não existir ou faz um UPDATE somando o novo valor.
+  // Insere uma nova linha se não existir ou faz um UPDATE somando o novo valor e atualizando a datahora.
   if (txid && valor !== undefined && valor !== null) {
     const numValor = Number(valor);
     // Verifica se já existe a linha com o txid
@@ -154,9 +154,9 @@ async function processPixItem(item, env) {
       const insertStmt = env.DATA_D1.prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)");
       await insertStmt.bind(txid, numValor).run();
     } else {
-      // Atualiza somando o novo valor ao valor existente
-      const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = valor + ? WHERE txid = ?");
-      await updateStmt.bind(numValor, txid).run();
+      // Atualiza somando o novo valor ao valor existente e atualiza o campo datahora
+      const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = valor + ?, datahora = ? WHERE txid = ?");
+      await updateStmt.bind(numValor, horario, txid).run();
     }
   }
 }
@@ -207,6 +207,9 @@ async function appConsultaRecebimento(request, env) {
  * Permite consultar todas as linhas de uma tabela (restrita a "recebimentos" ou "consultas")
  * exibindo apenas as colunas "txid", "valor" e "datahora". O resultado é formatado como texto
  * com colunas separadas por "|" e quebras de linha extras para melhorar a visualização.
+ * 
+ * Os dados serão apresentados ordenados pelo campo "datahora" em ordem decrescente
+ * (os registros mais recentes aparecem primeiro).
  *
  * @param {Request} request 
  * @param {*} env 
@@ -231,8 +234,10 @@ async function appConsultaDatabase(request, env) {
   }
 
   try {
-    // Consulta apenas as colunas obrigatórias
-    const queryStmt = env.DATA_D1.prepare(`SELECT txid, valor, datahora FROM ${db}`);
+    // Consulta apenas as colunas obrigatórias e ordena por "datahora" em ordem decrescente
+    const queryStmt = env.DATA_D1.prepare(
+      `SELECT txid, valor, datahora FROM ${db} ORDER BY datahora DESC`
+    );
     const result = await queryStmt.all();
     let rows = result.results;
     let headers;
@@ -245,7 +250,7 @@ async function appConsultaDatabase(request, env) {
       const pragmaResult = await pragmaStmt.all();
       if (pragmaResult.results && pragmaResult.results.length > 0) {
         headers = pragmaResult.results.map(col => col.name);
-        // Filtra apenas as colunas desejadas (caso existam)
+        // Filtra apenas as colunas desejadas
         headers = headers.filter(col => ["txid", "valor", "datahora"].includes(col));
       } else {
         return new Response("Não foi possível determinar as colunas da tabela.", { status: 500 });
