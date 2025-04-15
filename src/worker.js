@@ -1,8 +1,8 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.12 Notas da versão:
-// - Agora o app consulta-recebimentos busca na tabela "consultas" o campo "pulsos" que já é um valor numérico inteiro.
-// 
+// version: 0.0.13 Notas da versão:
+// - Agora o app consulta-recebimento busca na tabela "consultas" o campo "pulsos".
+// - No app consulta-database, para a tabela "consultas", é adicionado o campo "valorficha" na exibição.
 
 /**
  * Este Worker utiliza os seguintes bindings:
@@ -176,8 +176,8 @@ async function processPixItem(item, env) {
  * App responsável por tratar o endpoint /consulta-recebimento
  * 
  * Executa:
- * - Consulta de valor na tabela "consultas" pelo txid (enviado no parâmetro "idmaq")
- * - Após consulta, o valor é resetado para 0
+ * - Consulta do campo "pulsos" na tabela "consultas" pelo txid (enviado no parâmetro "idmaq")
+ * - Após consulta, atualiza (resetando) o campo "valor" para 0
  *
  * @param {Request} request 
  * @param {*} env 
@@ -188,8 +188,7 @@ async function appConsultaRecebimento(request, env) {
   const txidParam = url.searchParams.get("idmaq");
 
   try {
-    // Com a criação do campo "pulsos" na tabela "consultas", agora a função 'appConsultaRecebimento'
-    // busca pela coluna "pulsos"
+    // Agora busca pela coluna "pulsos" que já é um valor numérico inteiro.
     const selectStmt = env.DATA_D1.prepare("SELECT pulsos FROM consultas WHERE txid = ?");
     const result = await selectStmt.bind(txidParam).first();
     if (!result) {
@@ -198,7 +197,7 @@ async function appConsultaRecebimento(request, env) {
 
     const valorConsultado = result.pulsos;
 
-    // Após consulta, atualiza o valor para 0
+    // Após consulta, atualiza o campo "valor" para 0
     const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ? WHERE txid = ?");
     await updateStmt.bind(0, txidParam).run();
 
@@ -218,11 +217,12 @@ async function appConsultaRecebimento(request, env) {
  * Novo App responsável por tratar o endpoint /consulta-database
  * 
  * Permite consultar todas as linhas de uma tabela (restrita a "recebimentos" ou "consultas")
- * exibindo apenas as colunas "txid" e "valor". O resultado é formatado como uma tabela
- * de texto com bordas, conforme exemplo anexo.
+ * exibindo os dados formatados como uma tabela de texto com bordas.
  * 
- * Os dados serão apresentados ordenados pelo campo "datahora" em ordem decrescente
- * (os registros mais recentes aparecem primeiro).
+ * Para a tabela "consultas", o resultado exibido incluirá as colunas "txid", "valor" e "valorficha".
+ * Para a tabela "recebimentos", serão exibidas apenas as colunas "txid" e "valor".
+ * 
+ * Internamente, a consulta utiliza o campo "datahora" para ordenação (ordem decrescente).
  *
  * @param {Request} request 
  * @param {*} env 
@@ -247,21 +247,33 @@ async function appConsultaDatabase(request, env) {
   }
 
   try {
-    // Consulta inclui o campo "datahora" para ordenação, mas ele não será exibido
-    const queryStmt = env.DATA_D1.prepare(
-      `SELECT txid, valor, datahora FROM ${db} ORDER BY datahora DESC`
-    );
+    let query;
+    // Para a tabela "consultas", inclui o novo campo "valorficha" na consulta.
+    if (db === "consultas") {
+      query = `SELECT txid, valor, datahora, valorficha FROM ${db} ORDER BY datahora DESC`;
+    } else {
+      query = `SELECT txid, valor, datahora FROM ${db} ORDER BY datahora DESC`;
+    }
+    const queryStmt = env.DATA_D1.prepare(query);
     const result = await queryStmt.all();
     let rows = result.results;
 
-    // Mapeia os registros para exibir apenas as colunas "txid" e "valor"
-    const outputRows = rows.map(row => ({
-      txid: row.txid,
-      valor: row.valor
-    }));
-
-    // Define os headers fixos para saída: apenas "txid" e "valor"
-    const outputHeaders = ["txid", "valor"];
+    let outputRows, outputHeaders;
+    // Mapeia os registros conforme a tabela consultada
+    if (db === "consultas") {
+      outputRows = rows.map(row => ({
+        txid: row.txid,
+        valor: row.valor,
+        valorficha: row.valorficha
+      }));
+      outputHeaders = ["txid", "valor", "valorficha"];
+    } else {
+      outputRows = rows.map(row => ({
+        txid: row.txid,
+        valor: row.valor
+      }));
+      outputHeaders = ["txid", "valor"];
+    }
 
     const formattedTable = formatTable(outputHeaders, outputRows);
     const responseText = `Tabela ${db}:\n\n${formattedTable}`;
