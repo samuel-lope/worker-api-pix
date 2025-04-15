@@ -1,6 +1,8 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.11 (remoção da exibição da coluna "datahora" na tabela TXT, mantendo-a para ordenação)
+// version: 0.0.12 Notas da versão:
+// - Agora o app consulta-recebimentos busca na tabela "consultas" o campo "pulsos" que já é um valor numérico inteiro.
+// 
 
 /**
  * Este Worker utiliza os seguintes bindings:
@@ -186,7 +188,9 @@ async function appConsultaRecebimento(request, env) {
   const txidParam = url.searchParams.get("idmaq");
 
   try {
-    const selectStmt = env.DATA_D1.prepare("SELECT valor FROM consultas WHERE txid = ?");
+    // Com a criação do campo "pulsos" na tabela "consultas", agora a função 'appConsultaRecebimento'
+    // busca pela coluna "pulsos"
+    const selectStmt = env.DATA_D1.prepare("SELECT pulsos FROM consultas WHERE txid = ?");
     const result = await selectStmt.bind(txidParam).first();
     if (!result) {
       return new Response("ID Not Found.", { status: 404 });
