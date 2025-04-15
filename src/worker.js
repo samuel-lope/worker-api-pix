@@ -196,7 +196,7 @@ async function appConsultaRecebimento(request, env) {
       return new Response("ID Not Found.", { status: 404 });
     }
 
-    const valorConsultado = result.valor;
+    const valorConsultado = result.pulsos;
 
     // Após consulta, atualiza o valor para 0
     const updateStmt = env.DATA_D1.prepare("UPDATE consultas SET valor = ? WHERE txid = ?");
