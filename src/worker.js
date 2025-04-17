@@ -151,9 +151,9 @@ async function appConsultaDatabase(request, env) {
   });
 }
 
-/**
+/*************************************
  * Processa cada item PIX
- */
+ *************************************/
 async function processPixItem(item, env) {
   const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
   if (txid && valor) {
@@ -190,9 +190,9 @@ async function processPixItem(item, env) {
   }
 }
 
-/**
+/************************************
  * OPTIONS CORS
- */
+ ************************************/
 function handleOptions(request) {
   const reqH = request.headers.get("Access-Control-Request-Headers") || "*";
   return new Response(null, {
@@ -206,9 +206,7 @@ function handleOptions(request) {
   });
 }
 
-/**
- * Adiciona headers CORS na resposta
- */
+// Adiciona headers CORS na resposta
 function handleResponse(response) {
   const h = new Headers(response.headers);
   h.set("Access-Control-Allow-Origin", "*");
@@ -221,9 +219,9 @@ function handleResponse(response) {
   });
 }
 
-/**
+/***************************************
  * Formata tabela de texto com bordas
- */
+ ***************************************/
 function formatTable(headers, rows) {
   const widths = headers.map(h => h.length);
   rows.forEach(r =>
