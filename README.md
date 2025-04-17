@@ -1,6 +1,7 @@
 
 ## Efi API PIX usando Cloudflare Worker
-#### Versão v0.0.8-alpha (estável)
+#### Versão v0.0.14-alpha (estável)
+Removida a referência ao Bucket R2 da Cloudflare, que guardava o JSON recebido pela instituição via webhook.
 
 O webhook foi criando usando, unicamente, as ferramentas online disponíveis na página da Cloudflare, **com a vantagem extrema de não precisar lidar com dependências ou atualizações aplicações externas**.
 

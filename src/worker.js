@@ -1,6 +1,6 @@
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.13 (refatorado para usar roteamento baseado em tabela de rotas)
+// version: 0.0.14 (removida as refências ao serviço R2 de Buckets)
 
  /**
   * Este Worker utiliza os seguintes bindings:
@@ -156,7 +156,7 @@ async function appConsultaDatabase(request, env) {
  *************************************/
 async function processPixItem(item, env) {
   const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
-  
+
   // ATENÇÃO: Removida todas as referências do R2
   //if (txid && valor) {
   //  await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
