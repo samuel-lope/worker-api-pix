@@ -5,12 +5,6 @@
   "vars": {
     "EFI_IP": "34.193.116.226"
   },
-  "r2_buckets": [
-    {
-      "binding": "MY_R2",
-      "bucket_name": "api-pix",
-    }
-  ],
   "d1_databases": [
     {
       "binding": "DATA_D1",

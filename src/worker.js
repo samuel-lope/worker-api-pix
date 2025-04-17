@@ -156,9 +156,12 @@ async function appConsultaDatabase(request, env) {
  *************************************/
 async function processPixItem(item, env) {
   const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
-  if (txid && valor) {
-    await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
-  }
+  
+  // ATENÇÃO: Removida todas as referências do R2
+  //if (txid && valor) {
+  //  await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
+  //}
+  // FIM do uso de Bucket R2
 
   if (endToEndId && txid && chave && valor && horario) {
     await env.DATA_D1
