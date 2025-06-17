@@ -76,7 +76,7 @@ async function appWebhook(request, env) {
     for (const item of data.pix) {
       await processPixItem(item, env);
     }
-    console.log(data);
+    console.log(data.pix);
   }
 
   return new Response(
