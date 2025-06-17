@@ -48,7 +48,7 @@ export default {
 };
 
 /**
- * POST /recebimento
+ * POST /webhook
  */
 async function appWebhook(request, env) {
   const url = new URL(request.url);
@@ -65,10 +65,10 @@ async function appWebhook(request, env) {
   }
 
   if (clientIp !== env.EFI_IP) {
-    return new Response("Endereço IP não autorizado", { status: 403 });
+    return new Response("IP Denied", { status: 403 });
   }
   if (!hmacParam || hmacParam !== env.HMAC) {
-    return new Response("HMAC inválido ou ausente", { status: 401 });
+    return new Response("Invalid HMAC", { status: 401 });
   }
 
   const data = await request.json();
@@ -76,6 +76,7 @@ async function appWebhook(request, env) {
     for (const item of data.pix) {
       await processPixItem(item, env);
     }
+    console.log(data);
   }
 
   return new Response(
