@@ -76,7 +76,8 @@ async function appWebhook(request, env) {
     for (const item of data.pix) {
       await processPixItem(item, env);
     }
-    console.log(data.pix);
+    // Log de recebimento PIX
+    console.log(data);
   }
 
   return new Response(
@@ -85,9 +86,10 @@ async function appWebhook(request, env) {
   );
 }
 
-/**
- * GET /consulta-recebimento
- */
+/*****************************
+ *  GET /consulta-recebimento
+ *  Este Handle zera o valor na tabela.
+ *****************************/
 async function appConsultaRecebimento(request, env) {
   const url = new URL(request.url);
   const txid = url.searchParams.get("idmaq");
