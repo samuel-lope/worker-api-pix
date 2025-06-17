@@ -14,7 +14,7 @@
 // Mapeamento de rotas por método HTTP
 const routes = {
   POST: {
-    "/recebimento": appRecebimento,
+    "/webhook": appWebhook,
   },
   GET: {
     "/consulta-recebimento": appConsultaRecebimento,
@@ -50,7 +50,7 @@ export default {
 /**
  * POST /recebimento
  */
-async function appRecebimento(request, env) {
+async function appWebhook(request, env) {
   const url = new URL(request.url);
   let clientIp, hmacParam;
 
@@ -157,12 +157,6 @@ async function appConsultaDatabase(request, env) {
 async function processPixItem(item, env) {
   const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
 
-  // ATENÇÃO: Removida todas as referências do R2
-  //if (txid && valor) {
-  //  await env.MY_R2.put(`bucket-${txid}.json`, JSON.stringify({ endToEndId, txid, valor }));
-  //}
-  // FIM do uso de Bucket R2
-
   if (endToEndId && txid && chave && valor && horario) {
     await env.DATA_D1
       .prepare(
@@ -173,7 +167,7 @@ async function processPixItem(item, env) {
   }
 
   if (txid && valor != null) {
-    const rounded = Math.round(Number(valor) * 100) / 100;
+    const rounded = Math.round(Number(valor) * 100) /* antes dividia por 100 ( /100 ) */;
     const exists = await env.DATA_D1
       .prepare("SELECT 1 FROM consultas WHERE txid = ?")
       .bind(txid)
