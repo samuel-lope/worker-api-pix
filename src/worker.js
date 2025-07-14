@@ -155,17 +155,24 @@ async function appConsultaDatabase(request, env) {
 async function processPixItem(item, env) {
   const { horario, gnExtras, endToEndId, txid, chave, valor } = item;
 
+  // Converte o valor para centavos (inteiro)
+  const valorEmCentavos = Math.round(Number(valor) * 100);
+
+  // Formata a data para DD-MM-AAAA HH:MM
+  const data = new Date(horario);
+  const pad = (num) => String(num).padStart(2, '0');
+  const dataFormatada = `${pad(data.getDate())}-${pad(data.getMonth() + 1)}-${data.getFullYear()} ${pad(data.getHours())}:${pad(data.getMinutes())}`;
+
   if (endToEndId && txid && chave && valor && horario) {
     await env.DATA_D1
       .prepare(
         "INSERT INTO recebimentos (eeid, pagador, datahora, txid, chavepix, valor) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .bind(endToEndId, gnExtras.pagador.nome, horario, txid, chave, valor)
+      .bind(endToEndId, gnExtras.pagador.nome, dataFormatada, txid, chave, valorEmCentavos)
       .run();
   }
 
   if (txid && valor != null) {
-    const rounded = Math.round(Number(valor) * 100) /* antes dividia por 100 ( /100 ) */;
     const exists = await env.DATA_D1
       .prepare("SELECT 1 FROM consultas WHERE txid = ?")
       .bind(txid)
@@ -174,12 +181,12 @@ async function processPixItem(item, env) {
     if (!exists) {
       await env.DATA_D1
         .prepare("INSERT INTO consultas (txid, valor) VALUES (?, ?)")
-        .bind(txid, rounded)
+        .bind(txid, valorEmCentavos)
         .run();
     } else {
       await env.DATA_D1
-        .prepare("UPDATE consultas SET valor = ROUND(valor + ?, 2), datahora = ? WHERE txid = ?")
-        .bind(rounded, horario, txid)
+        .prepare("UPDATE consultas SET valor = valor + ?, datahora = ? WHERE txid = ?")
+        .bind(valorEmCentavos, dataFormatada, txid)
         .run();
     }
   }
