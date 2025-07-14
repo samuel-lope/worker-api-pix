@@ -3,12 +3,7 @@
 // version: 0.0.14 (removida as refências ao serviço R2 de Buckets)
 
  /**
-  * Este Worker utiliza os seguintes bindings:
-  * - DATA_D1: Banco de dados D1 (Cloudflare D1) para operações SQL.
-  * - MY_R2: Bucket R2 para armazenamento de arquivos.
-  *
-  * Variáveis de ambiente (env.vars) incluem:
-  * HMAC, HIDE_PARAM, EFI_IP, TEST_PASS.
+  * Este código é apenas um BackUp do original para que possamos fazer novas alterações e poder retornar em caso de erros.
   */
 
 // Mapeamento de rotas por método HTTP
