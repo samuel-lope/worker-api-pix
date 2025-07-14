@@ -1,0 +1,50 @@
+{
+  "pix": {
+    "0": {
+      "endToEndId": "E18236120202507141704s04a9b0f4f7",
+      "txid": "TXID0000004VALID",
+      "chave": "eee344f8cbde4f7f@sa.arq.br",
+      "valor": "0.15",
+      "horario": "2025-07-14T17:04:41.000Z",
+      "gnExtras": {
+        "pagador": {
+          "nome": "SAMUEL LOPES DA CUNHA",
+          "cpf": "***.838.223-**",
+          "codigoBanco": "18236120"
+        }
+      }
+    }
+  },
+  "$workers": {
+    "truncated": false,
+    "event": {
+      "request": {
+        "url": "https://pix.samuellopes.com.br/webhook?hmac=REDACTED&ignorar=/pix",
+        "method": "POST",
+        "path": "/webhook",
+        "search": {
+          "hmac": "REDACTED",
+          "ignorar": "/pix"
+        }
+      }
+    },
+    "outcome": "ok",
+    "scriptName": "apix-v1",
+    "eventType": "fetch",
+    "executionModel": "stateless",
+    "scriptVersion": {
+      "id": "b16075a5-3357-4e23-8e16-fb6d66406132"
+    },
+    "requestId": "95f299c9ccba5187"
+  },
+  "$metadata": {
+    "id": "01K04YAPPBJK3B9AHZSJMCVX7G",
+    "requestId": "95f299c9ccba5187",
+    "trigger": "POST /webhook",
+    "service": "apix-v1",
+    "account": "826e151c994ca722a28f347bbe750919",
+    "type": "cf-worker",
+    "fingerprint": "58f20726593b7359af726500ce284d3a",
+    "origin": "fetch"
+  }
+}

@@ -47,9 +47,9 @@ export default {
   }
 };
 
-/**
+/*************************************************
  * POST /webhook
- */
+ *************************************************/
 async function appWebhook(request, env) {
   const url = new URL(request.url);
   let clientIp, hmacParam;
