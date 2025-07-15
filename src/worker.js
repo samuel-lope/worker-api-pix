@@ -13,7 +13,7 @@ const routes = {
   },
   GET: {
     "/consulta-recebimento": appConsultaRecebimento,
-    "/consulta-database": appConsultaDatabase,
+    "/consulta-database": appConsultaDatabase
   }
 };
 
@@ -106,9 +106,9 @@ async function appConsultaRecebimento(request, env) {
   );
 }
 
-/**
+/**************************************
  * GET /consulta-database
- */
+ **************************************/
 async function appConsultaDatabase(request, env) {
   const url = new URL(request.url);
   const db = url.searchParams.get("db");
