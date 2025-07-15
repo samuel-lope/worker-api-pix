@@ -88,20 +88,35 @@ async function appWebhook(request, env) {
 async function appConsultaRecebimento(request, env) {
   const url = new URL(request.url);
   const txid = url.searchParams.get("idmaq");
-  const select = env.DATA_D1.prepare("SELECT pulsos FROM consultas WHERE txid = ?");
-  const row = await select.bind(txid).first();
-  if (!row) {
-    return new Response("ID Not Found.", { status: 404 });
+  const ficha = 50; // Valor da ficha em centavos
+
+  if (!txid) {
+    return new Response("Parâmetro 'idmaq' ausente.", { status: 400 });
   }
 
-  // reset valor
-  await env.DATA_D1
-    .prepare("UPDATE consultas SET valor = ? WHERE txid = ?")
-    .bind(0, txid)
-    .run();
+  // Seleciona a soma dos valores não utilizados para o txid especificado
+  const selectStmt = env.DATA_D1.prepare(
+    "SELECT SUM(valor) as total FROM recebimentos WHERE txid = ? AND used = 0"
+  );
+  const result = await selectStmt.bind(txid).first();
+
+  if (!result || result.total === null) {
+    return new Response("ID Not Found or no new credits.", { status: 404 });
+  }
+
+  const totalValue = result.total;
+  const pulsos = Math.floor(totalValue / ficha);
+
+  if (pulsos > 0) {
+    // Atualiza os registros para marcar como utilizados
+    const updateStmt = env.DATA_D1.prepare(
+      "UPDATE recebimentos SET used = 1 WHERE txid = ? AND used = 0"
+    );
+    await updateStmt.bind(txid).run();
+  }
 
   return new Response(
-    JSON.stringify(row.pulsos),
+    JSON.stringify(pulsos),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 }
