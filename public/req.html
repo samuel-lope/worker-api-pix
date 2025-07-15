@@ -1,0 +1,465 @@
+<!----------------------------
+author: Samuel Lopes
+date: 2025-04
+version 0.0.3 alpha (adicionado campos Valor e TxID com layout reorganizado e ajustes de URL e botão)
+------------------------------>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste de Requisição (Tema Dark com Loading)</title>
+  <style>
+    /* Paleta dark */
+    :root {
+      --bg-color: #121212;
+      --container-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333;
+      --accent-color: #007BFF;
+      --tab-bg: #2b2b2b;
+      --tab-active-bg: #1e1e1e;
+      --input-bg: #1e1e1e;
+      --input-border: #444;
+      --button-bg: #333;
+      --button-hover-bg: #444;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      margin: 20px 0;
+    }
+    
+    /* Bloco centralizado */
+    .container {
+      background-color: var(--container-bg);
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      text-align: left;
+      margin: 0 0 15px;
+    }
+    
+    label {
+      font-weight: bold;
+      color: var(--text-color);
+    }
+    
+    input[type="text"], textarea {
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--input-border);
+      padding: 8px;
+      box-sizing: border-box;
+      border-radius: 4px;
+    }
+    
+    /* Campo URL centralizado com largura total */
+    .url-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .url-container label {
+      flex-shrink: 0;
+    }
+    .url-container input[type="text"] {
+      flex: 1;
+      width: 100%;
+    }
+    
+    /* Container para os campos Valor e TxID */
+    .small-fields {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      width: 100%;
+    }
+    .small-fields .field {
+      display: flex;
+      flex-direction: column;
+    }
+    .small-fields .field.valor {
+      width: 20%;
+    }
+    .small-fields .field.txid {
+      width: 70%;
+    }
+    
+    /* Barra de carregamento fixa */
+    #loadingBarContainer {
+      margin-bottom: 10px;
+    }
+    #loadingBar {
+      width: 100%;
+      height: 5px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #loadingBar .bar {
+      height: 100%;
+      background-color: green;
+      width: 0%;
+    }
+    /* Tempo de execução */
+    #executionTime {
+      margin-top: 5px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-color);
+    }
+    
+    /* Estilos para as guias */
+    .tab-container {
+      margin-bottom: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .tab-header {
+      display: flex;
+      background-color: var(--tab-bg);
+    }
+    .tab-header button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-bottom: 1px solid var(--border-color);
+      background: none;
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--text-color);
+    }
+    .tab-header button.active {
+      background-color: var(--tab-active-bg);
+      border-bottom: 2px solid var(--accent-color);
+    }
+    .tab-content {
+      display: none;
+      padding: 10px;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    
+    textarea {
+      width: 100%;
+      display: block;
+      resize: vertical;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+    }
+    
+    /* Botão Consulta */
+    .btn-container {
+      text-align: left;
+      margin-top: 15px;
+    }
+    .btn-container button {
+      padding: 12px 24px;
+      background-color: var(--accent-color);
+      color: var(--text-color);
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-container button:hover {
+      background-color: #0056b3;
+    }
+    
+    /* Container de resposta do POST fixo */
+    #postResponseContainer {
+      margin-top: 20px;
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      border-radius: 4px;
+      background-color: var(--container-bg);
+    }
+    #postResponseContainer h3 {
+      margin-top: 0;
+      color: var(--text-color);
+    }
+    #postResponseContainer pre {
+      background: var(--input-bg);
+      padding: 10px;
+      border: 1px solid var(--input-border);
+      color: var(--text-color);
+      border-radius: 4px;
+      min-height: 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Teste de Requisição</h1>
+    
+    <!-- Bloco para o campo URL -->
+    <div class="url-container">
+      <label for="url">URL:</label>
+      <input type="text" id="url" name="url" value="">
+    </div>
+    
+    <!-- Bloco para os campos Valor e TxID -->
+    <div class="small-fields">
+      <div class="field valor">
+        <label for="valor">Valor:</label>
+        <input type="text" id="valor" name="valor" value="">
+      </div>
+      <div class="field txid">
+        <label for="txid">TxID:</label>
+        <input type="text" id="txid" name="txid" value="">
+      </div>
+    </div>
+    
+    <!-- Formulário com abas e demais elementos -->
+    <form id="requestForm" novalidate>
+      <!-- Espaço fixo para a barra de carregamento e tempo de execução -->
+      <div id="loadingBarContainer">
+        <div id="loadingBar">
+          <div class="bar"></div>
+        </div>
+        <div id="executionTime"></div>
+      </div>
+      
+      <!-- Área de guias para alternar entre JSON Body (POST), GET Resultado e GET Database -->
+      <div class="tab-container">
+        <div class="tab-header">
+          <button type="button" class="tab-link" data-tab="postTab">JSON Body (POST)</button>
+          <button type="button" class="tab-link" data-tab="getTab">GET Resultado</button>
+          <button type="button" class="tab-link" data-tab="getDbTab">GET Database</button>
+        </div>
+        <div id="postTab" class="tab-content">
+          <textarea id="body" name="body" rows="12" required></textarea>
+        </div>
+        <div id="getTab" class="tab-content">
+          <textarea id="getResponseText" name="getResponseText" rows="12" readonly></textarea>
+        </div>
+        <div id="getDbTab" class="tab-content">
+          <textarea id="getDbResponseText" name="getDbResponseText" rows="12" readonly></textarea>
+        </div>
+      </div>
+      
+      <!-- Botão de consulta -->
+      <div class="btn-container">
+        <button type="submit">Consulta</button>
+      </div>
+    </form>
+    
+    <!-- Container fixo para exibir a resposta do POST -->
+    <div id="postResponseContainer">
+      <h3>Resposta do POST:</h3>
+      <pre id="postResponseText"></pre>
+    </div>
+  </div>
+
+  <script>
+    // URLs pré-configuradas
+    const GET_URL = "https://pix.samuellopes.com.br/consulta-recebimento?idmaq=0000000000";
+    const POST_URL = "https://pix.samuellopes.com.br/webhook?param-72BmJu=Rx3bXyNc9Gdcv15U8PBBAT";
+    const GET_DB_URL = "https://pix.samuellopes.com.br/consulta-database?db=consultas";
+    
+    // JSON de exemplo para POST
+    const sampleJson = `{
+  "pix": [
+    {
+      "endToEndId": "testID-00000000",
+      "txid": "id0-TEST0001",
+      "chave": "chave-pix.test@dominio.com.br",
+      "valor": "10.03",
+      "horario": "yyyy-mm-ddThh:mm:ss.mmmZ",
+      "gnExtras": {
+        "pagador": {
+          "nome": "USUARIO DE TESTE",
+          "cpf": "***.000.000-**",
+          "codigoBanco": "00073573"
+        }
+      }
+    }
+  ]
+}`;
+    
+    let requestStartTime = 0;
+    
+    function generateRandomId() {
+      return "T" + Math.random().toString(36).substr(2, 12);
+    }
+    
+    // Atualiza o JSON de exemplo substituindo "horario", "valor" e "txid"
+    function fillPostExample() {
+      try {
+        const jsonData = JSON.parse(sampleJson);
+        if (jsonData.pix && jsonData.pix.length > 0) {
+          jsonData.pix[0].endToEndId = generateRandomId();
+          jsonData.pix[0].horario = new Date().toISOString();
+          const valor = document.getElementById('valor').value;
+          const txid = document.getElementById('txid').value;
+          if (valor.trim() !== "") {
+            jsonData.pix[0].valor = valor;
+          }
+          if (txid.trim() !== "") {
+            jsonData.pix[0].txid = txid;
+          }
+        }
+        document.getElementById('body').value = JSON.stringify(jsonData, null, 2);
+      } catch (e) {
+        console.error("Erro ao analisar o JSON de exemplo:", e);
+      }
+    }
+    
+    function activateTab(tabId) {
+      const tabLinks = document.querySelectorAll('.tab-link');
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('data-tab') === tabId);
+      });
+      tabContents.forEach(content => {
+        content.classList.toggle('active', content.id === tabId);
+        content.style.display = (content.id === tabId) ? 'block' : 'none';
+      });
+      
+      const urlField = document.getElementById('url');
+      if (tabId === 'getTab') {
+        urlField.value = GET_URL;
+      } else if (tabId === 'getDbTab') {
+        urlField.value = GET_DB_URL;
+      } else if (tabId === 'postTab') {
+        urlField.value = POST_URL;
+        fillPostExample();
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      activateTab('postTab');
+      document.querySelectorAll('.tab-link').forEach(function(tabBtn) {
+        tabBtn.addEventListener('click', function() {
+          activateTab(this.getAttribute('data-tab'));
+          document.getElementById('executionTime').style.display = 'none';
+        });
+      });
+    });
+    
+    function showLoadingBar() {
+      const loadingBar = document.getElementById('loadingBar');
+      const bar = loadingBar.querySelector('.bar');
+      loadingBar.style.display = 'block';
+      bar.style.transition = "none";
+      bar.style.width = "0%";
+      void bar.offsetWidth;
+      bar.style.transition = "width 2s linear";
+      bar.style.width = "100%";
+      requestStartTime = Date.now();
+    }
+    
+    function hideLoadingBar() {
+      const loadingBar = document.getElementById('loadingBar');
+      const bar = loadingBar.querySelector('.bar');
+      const executionTimeElement = document.getElementById('executionTime');
+      const executionTime = Date.now() - requestStartTime;
+      bar.style.transition = "none";
+      bar.style.width = "100%";
+      bar.style.backgroundColor = "blue";
+      executionTimeElement.textContent = `Tempo da última execução: ${executionTime} ms`;
+      executionTimeElement.style.display = 'block';
+      setTimeout(() => {
+        bar.style.width = "0%";
+        bar.style.transition = "";
+        bar.style.backgroundColor = "green";
+        executionTimeElement.style.display = 'none';
+      }, 1000);
+    }
+    
+    document.getElementById('requestForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      if (url === "") {
+        alert("Favor preencher a URL.");
+        return;
+      }
+      
+      showLoadingBar();
+      
+      if (document.getElementById('postTab').classList.contains('active')) {
+        const bodyField = document.getElementById('body');
+        let jsonData;
+        try {
+          jsonData = JSON.parse(bodyField.value);
+        } catch(error) {
+          console.error("Erro ao converter o JSON:", error);
+          document.getElementById('postResponseText').textContent = "Erro ao converter o JSON: " + error;
+          hideLoadingBar();
+          return;
+        }
+        fetch(url, {
+          method: 'POST',
+          mode: 'cors',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jsonData)
+        })
+        .then(response => response.status === 204 ? "" : response.text())
+        .then(data => {
+          document.getElementById('postResponseText').textContent = data;
+          hideLoadingBar();
+          activateTab("postTab");
+        })
+        .catch(error => {
+          console.error("Erro ao enviar a requisição POST:", error);
+          document.getElementById('postResponseText').textContent = "Erro ao enviar a requisição POST: " + error;
+          hideLoadingBar();
+          activateTab("postTab");
+        });
+      } else if (document.getElementById('getTab').classList.contains('active')) {
+        fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          redirect: 'follow'
+        })
+        .then(response => response.status === 204 ? "" : response.text())
+        .then(data => {
+          document.getElementById('getResponseText').value = data;
+          hideLoadingBar();
+          activateTab("getTab");
+        })
+        .catch(error => {
+          console.error("Erro ao enviar a requisição GET:", error);
+          document.getElementById('getResponseText').value = "Erro ao enviar a requisição GET: " + error;
+          hideLoadingBar();
+          activateTab("getTab");
+        });
+      } else if (document.getElementById('getDbTab').classList.contains('active')) {
+        fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          redirect: 'follow'
+        })
+        .then(response => response.status === 204 ? "" : response.text())
+        .then(data => {
+          document.getElementById('getDbResponseText').value = data;
+          hideLoadingBar();
+          activateTab("getDbTab");
+        })
+        .catch(error => {
+          console.error("Erro ao enviar a requisição GET (Database):", error);
+          document.getElementById('getDbResponseText').value = "Erro ao enviar a requisição GET (Database): " + error;
+          hideLoadingBar();
+          activateTab("getDbTab");
+        });
+      }
+    });
+  </script>
+  
+</body>
+</html>
