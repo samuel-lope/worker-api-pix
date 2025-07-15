@@ -88,7 +88,7 @@ async function appWebhook(request, env) {
 async function appConsultaRecebimento(request, env) {
   const url = new URL(request.url);
   const txid = url.searchParams.get("idmaq");
-  const ficha = 50; // Valor da ficha em centavos
+  const ficha = 5; // Valor da ficha em centavos
 
   if (!txid) {
     return new Response("Parâmetro 'idmaq' ausente.", { status: 400 });
