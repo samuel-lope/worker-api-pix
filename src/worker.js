@@ -138,42 +138,44 @@ async function appConsultaRecebimento(request, env) {
  **************************************/
 async function appConsultaDatabase(request, env) {
   const url = new URL(request.url);
-  const db = url.searchParams.get("db");
-  if (!["recebimentos", "consultas"].includes(db)) {
-    return new Response("Tabela não autorizada para consulta.", { status: 403 });
-  }
+  const txid = url.searchParams.get("txid");
 
-  // monta SQL
-  const cols = db === "consultas"
-    ? "txid, valor, datahora, valorficha"
-    : "txid, valor, datahora";
-  const rows = (await env.DATA_D1
-    .prepare(`SELECT ${cols} FROM ${db} ORDER BY datahora DESC`)
-    .all()
-  ).results;
-
-  // mapeia apenas colunas de saída
-  let headers, output;
-  if (db === "consultas") {
-    headers = ["txid", "valor", "valorficha"];
-    output = rows.map(r => ({
-      txid: r.txid,
-      valor: r.valor,
-      valorficha: r.valorficha
-    }));
+  let query;
+  if (txid) {
+    query = env.DATA_D1.prepare(
+      `SELECT
+        txid as codigoTxid,
+        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,
+        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,
+        SUM(valor) as valorTotal
+      FROM recebimentos
+      WHERE txid = ?
+      GROUP BY txid`
+    ).bind(txid);
   } else {
-    headers = ["txid", "valor"];
-    output = rows.map(r => ({
-      txid: r.txid,
-      valor: r.valor
-    }));
+    query = env.DATA_D1.prepare(
+      `SELECT
+        txid as codigoTxid,
+        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,
+        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,
+        SUM(valor) as valorTotal
+      FROM recebimentos
+      GROUP BY txid`
+    );
   }
 
-  const table = formatTable(headers, output);
-  return new Response(`Tabela ${db}:\n\n${table}`, {
-    status: 200,
-    headers: { "Content-Type": "text/plain" }
-  });
+  try {
+    const { results } = await query.all();
+    return new Response(JSON.stringify(results, null, 2), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
 /*************************************
@@ -247,25 +249,3 @@ function handleResponse(response) {
     headers: h
   });
 }
-
-/***************************************
- * Formata tabela de texto com bordas
- ***************************************/
-function formatTable(headers, rows) {
-  const widths = headers.map(h => h.length);
-  rows.forEach(r =>
-    headers.forEach((h, i) => {
-      widths[i] = Math.max(widths[i], String(r[h] ?? "").length);
-    })
-  );
-  const pad = (s, w) => s + " ".repeat(w - s.length);
-  const border = "+" + widths.map(w => "-".repeat(w + 2)).join("+") + "+";
-  const head = "| " + headers.map((h, i) => pad(h, widths[i])).join(" | ") + " |";
-  const data = rows.map(r =>
-    "| " +
-    headers.map((h, i) => pad(String(r[h] ?? ""), widths[i])).join(" | ") +
-    " |"
-  );
-  return [border, head, border, ...data, border].join("\n");
-}
-
