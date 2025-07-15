@@ -88,27 +88,39 @@ async function appWebhook(request, env) {
 async function appConsultaRecebimento(request, env) {
   const url = new URL(request.url);
   const txid = url.searchParams.get("idmaq");
-  const ficha = 5; // Valor da ficha em centavos
+  const ficha = 50; // Valor da ficha em centavos
 
   if (!txid) {
     return new Response("Parâmetro 'idmaq' ausente.", { status: 400 });
   }
 
-  // Seleciona a soma dos valores não utilizados para o txid especificado
+  // 1. Verificar se o TXID existe na tabela
+  const checkTxidStmt = env.DATA_D1.prepare("SELECT 1 FROM recebimentos WHERE txid = ? LIMIT 1");
+  const txidExists = await checkTxidStmt.bind(txid).first();
+
+  if (!txidExists) {
+    return new Response("TXID Não encontrado.", { status: 404 });
+  }
+
+  // 2. Se o TXID existe, calcular a soma dos valores não utilizados
   const selectStmt = env.DATA_D1.prepare(
     "SELECT SUM(valor) as total FROM recebimentos WHERE txid = ? AND used = 0"
   );
   const result = await selectStmt.bind(txid).first();
 
-  if (!result || result.total === null) {
-    return new Response("ID Not Found or no new credits.", { status: 404 });
+  // Se não houver créditos novos (total é null ou 0), retorna 0
+  if (!result || result.total === null || result.total === 0) {
+    return new Response(JSON.stringify(0), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const totalValue = result.total;
   const pulsos = Math.floor(totalValue / ficha);
 
   if (pulsos > 0) {
-    // Atualiza os registros para marcar como utilizados
+    // 3. Atualizar os registros para marcar como utilizados
     const updateStmt = env.DATA_D1.prepare(
       "UPDATE recebimentos SET used = 1 WHERE txid = ? AND used = 0"
     );
