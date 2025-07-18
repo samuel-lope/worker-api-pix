@@ -1,17 +1,22 @@
+
+
+import loginPage from '../private/login.html';
+import reqPage from '../private/req.html';
+
 // author: Samuel Lopes
 // date: 04.2025
-// version: 0.0.14 (removida as refências ao serviço R2 de Buckets)
-
- /**
-  * Este código é apenas um BackUp do original para que possamos fazer novas alterações e poder retornar em caso de erros.
-  */
+// version: 0.0.16 (removido html do worker)
 
 // Mapeamento de rotas por método HTTP
 const routes = {
   POST: {
     "/webhook": appWebhook,
+    "/login": appLogin,
   },
   GET: {
+    "/": appReq,
+    "/req": appReq,
+    "/login": appLoginPage,
     "/consulta-recebimento": appConsultaRecebimento,
     "/consulta-database": appConsultaDatabase
   }
@@ -24,10 +29,15 @@ export default {
     }
 
     const url = new URL(request.url);
-    const handler = (routes[request.method] || {})[url.pathname];
+    let handler = (routes[request.method] || {})[url.pathname];
 
     if (!handler) {
-      return handleResponse(new Response("Endpoint não encontrado.", { status: 404 }));
+      // Se não houver um manipulador, verificamos se é uma solicitação para a página principal
+      if (url.pathname === '/' || url.pathname === '/req') {
+        handler = appReq;
+      } else {
+        return handleResponse(new Response("Endpoint não encontrado.", { status: 404 }));
+      }
     }
 
     try {
@@ -41,6 +51,40 @@ export default {
     }
   }
 };
+
+async function appReq(request, env) {
+  const cookie = request.headers.get('Cookie');
+  if (cookie && cookie.includes('auth=true')) {
+    return new Response(reqPage, {
+      headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+    });
+  } else {
+    return Response.redirect(new URL('/login', request.url), 302);
+  }
+}
+
+async function appLoginPage(request, env) {
+  return new Response(loginPage, {
+    headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+  });
+}
+
+async function appLogin(request, env) {
+  const formData = await request.formData();
+  const username = formData.get('username');
+  const password = formData.get('password');
+
+  if (username === 'admin' && password === 'password') {
+    const headers = new Headers({
+      'Location': '/req',
+      'Set-Cookie': 'auth=true; Path=/; HttpOnly; Secure; SameSite=Strict',
+    });
+    return new Response(null, { status: 302, headers });
+  } else {
+    return Response.redirect(new URL('/login?error=true', request.url), 302);
+  }
+}
+
 
 /*************************************************
  * POST /webhook
@@ -143,24 +187,11 @@ async function appConsultaDatabase(request, env) {
   let query;
   if (txid) {
     query = env.DATA_D1.prepare(
-      `SELECT
-        txid as codigoTxid,
-        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,
-        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,
-        SUM(valor) as valorTotal
-      FROM recebimentos
-      WHERE txid = ?
-      GROUP BY txid`
+      `SELECT\n        txid as codigoTxid,\n        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,\n        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,\n        SUM(valor) as valorTotal\n      FROM recebimentos\n      WHERE txid = ?\n      GROUP BY txid`
     ).bind(txid);
   } else {
     query = env.DATA_D1.prepare(
-      `SELECT
-        txid as codigoTxid,
-        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,
-        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,
-        SUM(valor) as valorTotal
-      FROM recebimentos
-      GROUP BY txid`
+      `SELECT\n        txid as codigoTxid,\n        SUM(CASE WHEN used = 1 THEN valor ELSE 0 END) as valorUsado,\n        SUM(CASE WHEN used = 0 THEN valor ELSE 0 END) as valorAberto,\n        SUM(valor) as valorTotal\n      FROM recebimentos\n      GROUP BY txid`
     );
   }
 

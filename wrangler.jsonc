@@ -18,6 +18,9 @@
     "logs": {
       "enabled": true
     }
+  },
+  "text_blobs": {
+    "LOGIN_PAGE": "private/login.html",
+    "REQ_PAGE": "private/req.html"
   }
 }
-
