@@ -19,8 +19,11 @@
       "enabled": true
     }
   },
-  "text_blobs": {
-    "LOGIN_PAGE": "private/login.html",
-    "REQ_PAGE": "private/req.html"
-  }
+  "rules": [
+    {
+      "type": "Data",
+      "globs": ["**/*.html"],
+      "fallthrough": true
+    }
+  ]
 }
