@@ -52,7 +52,7 @@ version 0.0.3 alpha (adicionado campos Valor e TxID com layout reorganizado e aj
       color: var(--text-color);
     }
     
-    input[type="text"], textarea {
+    input[type="text"], textarea, input[type="password"] {
       background-color: var(--input-bg);
       color: var(--text-color);
       border: 1px solid var(--input-border);
@@ -199,73 +199,127 @@ version 0.0.3 alpha (adicionado campos Valor e TxID com layout reorganizado e aj
       border-radius: 4px;
       min-height: 40px;
     }
+
+    /* Estilos de Login */
+    #login-container {
+      max-width: 400px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      width: 100%;
+    }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>Teste de Requisição</h1>
-    
-    <!-- Bloco para o campo URL -->
-    <div class="url-container">
-      <label for="url">URL:</label>
-      <input type="text" id="url" name="url" value="">
-    </div>
-    
-    <!-- Bloco para os campos Valor e TxID -->
-    <div class="small-fields">
-      <div class="field valor">
-        <label for="valor">Valor:</label>
-        <input type="text" id="valor" name="valor" value="">
+  <div id="login-container" class="container">
+    <h1>Login</h1>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Usuário:</label>
+        <input type="text" id="username" name="username" required>
       </div>
-      <div class="field txid">
-        <label for="txid">TxID:</label>
-        <input type="text" id="txid" name="txid" value="">
+      <div class="form-group">
+        <label for="password">Senha:</label>
+        <input type="password" id="password" name="password" required>
       </div>
-    </div>
-    
-    <!-- Formulário com abas e demais elementos -->
-    <form id="requestForm" novalidate>
-      <!-- Espaço fixo para a barra de carregamento e tempo de execução -->
-      <div id="loadingBarContainer">
-        <div id="loadingBar">
-          <div class="bar"></div>
-        </div>
-        <div id="executionTime"></div>
-      </div>
-      
-      <!-- Área de guias para alternar entre JSON Body (POST), GET Resultado e GET Database -->
-      <div class="tab-container">
-        <div class="tab-header">
-          <button type="button" class="tab-link" data-tab="postTab">JSON Body (POST)</button>
-          <button type="button" class="tab-link" data-tab="getTab">GET Resultado</button>
-          <button type="button" class="tab-link" data-tab="getDbTab">GET Database</button>
-        </div>
-        <div id="postTab" class="tab-content">
-          <textarea id="body" name="body" rows="12" required></textarea>
-        </div>
-        <div id="getTab" class="tab-content">
-          <textarea id="getResponseText" name="getResponseText" rows="12" readonly></textarea>
-        </div>
-        <div id="getDbTab" class="tab-content">
-          <textarea id="getDbResponseText" name="getDbResponseText" rows="12" readonly></textarea>
-        </div>
-      </div>
-      
-      <!-- Botão de consulta -->
       <div class="btn-container">
-        <button type="submit">Consulta</button>
+        <button type="submit">Entrar</button>
       </div>
+      <p id="login-error" style="color: red; display: none;">Usuário ou senha inválidos.</p>
     </form>
-    
-    <!-- Container fixo para exibir a resposta do POST -->
-    <div id="postResponseContainer">
-      <h3>Resposta do POST:</h3>
-      <pre id="postResponseText"></pre>
+  </div>
+
+  <div id="main-container" style="display: none;">
+    <div class="container">
+      <h1>Teste de Requisição</h1>
+      
+      <!-- Bloco para o campo URL -->
+      <div class="url-container">
+        <label for="url">URL:</label>
+        <input type="text" id="url" name="url" value="">
+      </div>
+      
+      <!-- Bloco para os campos Valor e TxID -->
+      <div class="small-fields">
+        <div class="field valor">
+          <label for="valor">Valor:</label>
+          <input type="text" id="valor" name="valor" value="">
+        </div>
+        <div class="field txid">
+          <label for="txid">TxID:</label>
+          <input type="text" id="txid" name="txid" value="">
+        </div>
+      </div>
+      
+      <!-- Formulário com abas e demais elementos -->
+      <form id="requestForm" novalidate>
+        <!-- Espaço fixo para a barra de carregamento e tempo de execução -->
+        <div id="loadingBarContainer">
+          <div id="loadingBar">
+            <div class="bar"></div>
+          </div>
+          <div id="executionTime"></div>
+        </div>
+        
+        <!-- Área de guias para alternar entre JSON Body (POST), GET Resultado e GET Database -->
+        <div class="tab-container">
+          <div class="tab-header">
+            <button type="button" class="tab-link" data-tab="postTab">JSON Body (POST)</button>
+            <button type="button" class="tab-link" data-tab="getTab">GET Resultado</button>
+            <button type="button" class="tab-link" data-tab="getDbTab">GET Database</button>
+          </div>
+          <div id="postTab" class="tab-content">
+            <textarea id="body" name="body" rows="12" required></textarea>
+          </div>
+          <div id="getTab" class="tab-content">
+            <textarea id="getResponseText" name="getResponseText" rows="12" readonly></textarea>
+          </div>
+          <div id="getDbTab" class="tab-content">
+            <textarea id="getDbResponseText" name="getDbResponseText" rows="12" readonly></textarea>
+          </div>
+        </div>
+        
+        <!-- Botão de consulta -->
+        <div class="btn-container">
+          <button type="submit">Consulta</button>
+        </div>
+      </form>
+      
+      <!-- Container fixo para exibir a resposta do POST -->
+      <div id="postResponseContainer">
+        <h3>Resposta do POST:</h3>
+        <pre id="postResponseText"></pre>
+      </div>
     </div>
   </div>
 
   <script>
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorElement = document.getElementById('login-error');
+
+      // Hardcoded credentials
+      if (username === 'admin' && password === 'password') {
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('main-container').style.display = 'block';
+        errorElement.style.display = 'none';
+      } else {
+        errorElement.style.display = 'block';
+      }
+    });
+
     // URLs pré-configuradas
     const GET_URL = "https://pix.samuellopes.com.br/consulta-recebimento?idmaq=TXID";
     const POST_URL = "https://pix.samuellopes.com.br/webhook?param-72BmJu=Rx3bXyNc9Gdcv15U8PBBAT";
